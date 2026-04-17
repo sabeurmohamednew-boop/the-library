@@ -1,6 +1,13 @@
 export type BookFormat = "PDF" | "EPUB";
 export type BookCategory = "SELF_IMPROVEMENT" | "NOFAP";
 
+export type BlobDescriptor = {
+  url: string;
+  pathname: string;
+  contentType: string;
+  size: number;
+};
+
 export type BookDTO = {
   id: string;
   slug: string;
@@ -12,9 +19,13 @@ export type BookDTO = {
   pageCount: number;
   publicationDate: string;
   uploadDate: string;
-  coverImagePath: string;
-  filePath: string;
+  bookBlobUrl: string;
+  bookBlobPath: string;
+  coverBlobUrl: string;
+  coverBlobPath: string;
   fileSize: number;
+  fileContentType: string;
+  coverContentType: string;
   createdAt: string;
   updatedAt: string;
 };

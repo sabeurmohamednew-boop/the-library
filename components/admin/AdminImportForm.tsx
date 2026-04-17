@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useRef, useState } from "react";
 import { BOOK_CATEGORIES, BOOK_FORMATS } from "@/lib/config";
+import { uploadAdminBlob } from "@/lib/clientUploads";
 import type { BookDTO } from "@/lib/types";
 
 type FieldErrors = Record<string, string[] | undefined>;
@@ -25,30 +26,13 @@ export function AdminImportForm() {
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [created, setCreated] = useState<BookDTO | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [extracting, setExtracting] = useState(false);
 
-  async function handleFileChange(file: File | undefined) {
+  function handleFileChange(file: File | undefined) {
     if (!file) return;
     const lower = file.name.toLowerCase();
     if (lower.endsWith(".epub")) setFormat("EPUB");
     if (lower.endsWith(".pdf")) setFormat("PDF");
     if (!title) setTitle(inferTitle(file.name));
-
-    setExtracting(true);
-    const formData = new FormData();
-    formData.set("bookFile", file);
-    const response = await fetch("/api/admin/books/metadata", {
-      method: "POST",
-      body: formData,
-    });
-    const metadata = (await response.json().catch(() => null)) as { title?: string; author?: string; pageCount?: number; format?: string } | null;
-    setExtracting(false);
-
-    if (!response.ok || !metadata) return;
-    if (metadata.format === "PDF" || metadata.format === "EPUB") setFormat(metadata.format);
-    if (metadata.title && !title) setTitle(metadata.title);
-    if (metadata.author && !author) setAuthor(metadata.author);
-    if (metadata.pageCount && !pageCount) setPageCount(String(metadata.pageCount));
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -87,26 +71,47 @@ export function AdminImportForm() {
       return;
     }
 
-    const response = await fetch("/api/admin/books", {
-      method: "POST",
-      body: formData,
-    });
+    try {
+      const [bookBlob, coverBlob] = await Promise.all([
+        uploadAdminBlob(bookFile as File, "book", title),
+        uploadAdminBlob(coverFile as File, "cover", title),
+      ]);
 
-    const payload = (await response.json().catch(() => null)) as { error?: string; fieldErrors?: FieldErrors; book?: BookDTO } | null;
-    setSubmitting(false);
+      const response = await fetch("/api/admin/books", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title,
+          description: String(formData.get("description") ?? ""),
+          author,
+          format,
+          category: String(formData.get("category") ?? ""),
+          pageCount,
+          publicationDate: String(formData.get("publicationDate") ?? ""),
+          bookBlob,
+          coverBlob,
+        }),
+      });
 
-    if (!response.ok || !payload?.book) {
-      setError(payload?.error ?? "The book could not be imported.");
-      setFieldErrors(payload?.fieldErrors ?? {});
-      return;
+      const payload = (await response.json().catch(() => null)) as { error?: string; fieldErrors?: FieldErrors; book?: BookDTO } | null;
+      setSubmitting(false);
+
+      if (!response.ok || !payload?.book) {
+        setError(payload?.error ?? "The book could not be imported.");
+        setFieldErrors(payload?.fieldErrors ?? {});
+        return;
+      }
+
+      setCreated(payload.book);
+      formRef.current?.reset();
+      setTitle("");
+      setAuthor("");
+      setPageCount("");
+      setFormat("PDF");
+    } catch (uploadError) {
+      setSubmitting(false);
+      setError(uploadError instanceof Error ? uploadError.message : "The files could not be uploaded.");
     }
-
-    setCreated(payload.book);
-    formRef.current?.reset();
-    setTitle("");
-    setAuthor("");
-    setPageCount("");
-    setFormat("PDF");
   }
 
   function fieldError(name: string) {
@@ -116,14 +121,13 @@ export function AdminImportForm() {
   return (
     <form ref={formRef} className="admin-form" onSubmit={handleSubmit}>
       <div className="notice">
-        This owner-only route writes uploaded files to local storage and creates a database record immediately.
+        This owner-only route uploads files to Vercel Blob and creates a database record immediately.
       </div>
 
       <div className="form-grid">
         <label className="label span-2">
           Book file
           <input className="field" type="file" name="bookFile" accept=".pdf,.epub,application/pdf,application/epub+zip" required onChange={(event) => handleFileChange(event.target.files?.[0])} />
-          {extracting ? <span className="muted small">Checking metadata</span> : null}
           {fieldError("bookFile")}
         </label>
 
@@ -208,7 +212,7 @@ export function AdminImportForm() {
 
       <div className="action-row">
         <button className="button primary" type="submit" disabled={submitting}>
-          {submitting ? "Importing" : "Import book"}
+          {submitting ? "Uploading" : "Import book"}
         </button>
         <Link className="button" href="/">
           The Library

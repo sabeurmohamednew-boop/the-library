@@ -10,4 +10,23 @@ export const bookImportSchema = z.object({
   publicationDate: z.coerce.date(),
 });
 
+export const blobDescriptorSchema = z.object({
+  url: z.string().url("Uploaded file URL is invalid."),
+  pathname: z.string().trim().min(1, "Uploaded file path is missing."),
+  contentType: z.string().trim().min(1, "Uploaded file type is missing."),
+  size: z.coerce.number().int().min(1, "Uploaded file is empty."),
+});
+
+export const bookCreateSchema = bookImportSchema.extend({
+  bookBlob: blobDescriptorSchema,
+  coverBlob: blobDescriptorSchema,
+});
+
+export const bookUpdateSchema = bookImportSchema.extend({
+  bookBlob: blobDescriptorSchema.optional(),
+  coverBlob: blobDescriptorSchema.optional(),
+});
+
 export type BookImportInput = z.infer<typeof bookImportSchema>;
+export type BookCreateInput = z.infer<typeof bookCreateSchema>;
+export type BookUpdateInput = z.infer<typeof bookUpdateSchema>;

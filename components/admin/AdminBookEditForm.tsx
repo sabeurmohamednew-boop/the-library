@@ -5,6 +5,7 @@ import { FormEvent, useState } from "react";
 import { BOOK_CATEGORIES, BOOK_FORMATS } from "@/lib/config";
 import type { BookDTO } from "@/lib/types";
 import { formatDate } from "@/lib/text";
+import { uploadAdminBlob } from "@/lib/clientUploads";
 
 type FieldErrors = Record<string, string[] | undefined>;
 
@@ -30,21 +31,45 @@ export function AdminBookEditForm({ book }: AdminBookEditFormProps) {
     setSaved(null);
 
     const formData = new FormData(event.currentTarget);
-    const response = await fetch(`/api/admin/books/${book.id}`, {
-      method: "PATCH",
-      body: formData,
-    });
+    const replacementBook = formData.get("bookFile") as File | null;
+    const replacementCover = formData.get("coverFile") as File | null;
 
-    const payload = (await response.json().catch(() => null)) as { error?: string; fieldErrors?: FieldErrors; book?: BookDTO } | null;
-    setSubmitting(false);
+    try {
+      const [bookBlob, coverBlob] = await Promise.all([
+        replacementBook?.size ? uploadAdminBlob(replacementBook, "book", String(formData.get("title") ?? book.title)) : Promise.resolve(undefined),
+        replacementCover?.size ? uploadAdminBlob(replacementCover, "cover", String(formData.get("title") ?? book.title)) : Promise.resolve(undefined),
+      ]);
 
-    if (!response.ok || !payload?.book) {
-      setError(payload?.error ?? "The book could not be saved.");
-      setFieldErrors(payload?.fieldErrors ?? {});
-      return;
+      const response = await fetch(`/api/admin/books/${book.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: String(formData.get("title") ?? ""),
+          description: String(formData.get("description") ?? ""),
+          author: String(formData.get("author") ?? ""),
+          format: String(formData.get("format") ?? ""),
+          category: String(formData.get("category") ?? ""),
+          pageCount: String(formData.get("pageCount") ?? ""),
+          publicationDate: String(formData.get("publicationDate") ?? ""),
+          ...(bookBlob ? { bookBlob } : {}),
+          ...(coverBlob ? { coverBlob } : {}),
+        }),
+      });
+
+      const payload = (await response.json().catch(() => null)) as { error?: string; fieldErrors?: FieldErrors; book?: BookDTO } | null;
+      setSubmitting(false);
+
+      if (!response.ok || !payload?.book) {
+        setError(payload?.error ?? "The book could not be saved.");
+        setFieldErrors(payload?.fieldErrors ?? {});
+        return;
+      }
+
+      setSaved(payload.book);
+    } catch (uploadError) {
+      setSubmitting(false);
+      setError(uploadError instanceof Error ? uploadError.message : "The replacement files could not be uploaded.");
     }
-
-    setSaved(payload.book);
   }
 
   function fieldError(name: string) {

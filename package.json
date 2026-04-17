@@ -4,13 +4,13 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && node scripts/prepare-vercel-demo.mjs && next build",
+    "build": "prisma generate && next build",
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "db:generate": "prisma generate",
-    "db:init": "prisma generate && tsx prisma/init-db.ts",
-    "db:push": "tsx prisma/init-db.ts",
+    "db:migrate": "prisma migrate deploy",
+    "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
     "postinstall": "prisma generate && node scripts/copy-pdf-worker.mjs"
   },
@@ -26,6 +26,7 @@
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
+    "@vercel/blob": "^2.3.3",
     "epubjs": "^0.3.93",
     "jszip": "^3.10.1",
     "lucide-react": "^1.8.0",

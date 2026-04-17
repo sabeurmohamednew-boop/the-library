@@ -7,12 +7,12 @@ build/
 .env*.local
 *.tsbuildinfo
 
-# Local runtime data. Keep the folder structure, not uploaded books.
+# Legacy local runtime data from the old filesystem demo mode.
 storage/books/*
 storage/covers/*
 !storage/books/.gitkeep
 !storage/covers/.gitkeep
 
-# SQLite runtime databases.
+# Legacy SQLite runtime databases from the old demo mode.
 prisma/*.db
 prisma/*.db-journal

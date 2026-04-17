@@ -1,14 +1,9 @@
-import { mkdir, writeFile } from "node:fs/promises";
-import path from "node:path";
 import { deflateSync } from "node:zlib";
+import { put } from "@vercel/blob";
 import JSZip from "jszip";
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
-const root = process.cwd();
-const storageRoot = path.join(root, "storage");
-const booksDir = path.join(storageRoot, "books");
-const coversDir = path.join(storageRoot, "covers");
 
 type SampleBook = {
   slug: string;
@@ -390,19 +385,31 @@ ${chapterFiles.map((_, index) => `  <itemref idref="chapter-${index + 1}"/>`).jo
   });
 }
 
+async function uploadSeedBlob(pathname: string, body: Buffer, contentType: string) {
+  return put(pathname, body, {
+    access: "public",
+    allowOverwrite: true,
+    contentType,
+  });
+}
+
 async function main() {
-  await mkdir(booksDir, { recursive: true });
-  await mkdir(coversDir, { recursive: true });
+  if (!process.env.BLOB_READ_WRITE_TOKEN) {
+    throw new Error("BLOB_READ_WRITE_TOKEN is required to seed sample books into Vercel Blob.");
+  }
 
   for (const [index, book] of samples.entries()) {
     const bookExtension = book.format === "PDF" ? ".pdf" : ".epub";
-    const bookRelativePath = `books/${book.slug}${bookExtension}`;
-    const coverRelativePath = `covers/${book.slug}.png`;
+    const bookBlobPath = `books/${book.slug}${bookExtension}`;
+    const coverBlobPath = `covers/${book.slug}.png`;
     const fileBuffer = book.format === "PDF" ? createPdf(book) : await createEpub(book);
     const coverBuffer = createCoverPng(book.coverPalette, index + 1);
-
-    await writeFile(path.join(storageRoot, bookRelativePath), fileBuffer);
-    await writeFile(path.join(storageRoot, coverRelativePath), coverBuffer);
+    const fileContentType = book.format === "PDF" ? "application/pdf" : "application/epub+zip";
+    const coverContentType = "image/png";
+    const [bookBlob, coverBlob] = await Promise.all([
+      uploadSeedBlob(bookBlobPath, fileBuffer, fileContentType),
+      uploadSeedBlob(coverBlobPath, coverBuffer, coverContentType),
+    ]);
 
     await prisma.book.upsert({
       where: { slug: book.slug },
@@ -414,9 +421,13 @@ async function main() {
         category: book.category,
         pageCount: book.pageCount,
         publicationDate: new Date(book.publicationDate),
-        coverImagePath: coverRelativePath,
-        filePath: bookRelativePath,
+        bookBlobUrl: bookBlob.url,
+        bookBlobPath: bookBlob.pathname,
+        coverBlobUrl: coverBlob.url,
+        coverBlobPath: coverBlob.pathname,
         fileSize: fileBuffer.byteLength,
+        fileContentType,
+        coverContentType,
         searchText: `${book.title} ${book.author} ${book.description}`.toLowerCase(),
       },
       create: {
@@ -429,9 +440,13 @@ async function main() {
         pageCount: book.pageCount,
         publicationDate: new Date(book.publicationDate),
         uploadDate: new Date(),
-        coverImagePath: coverRelativePath,
-        filePath: bookRelativePath,
+        bookBlobUrl: bookBlob.url,
+        bookBlobPath: bookBlob.pathname,
+        coverBlobUrl: coverBlob.url,
+        coverBlobPath: coverBlob.pathname,
         fileSize: fileBuffer.byteLength,
+        fileContentType,
+        coverContentType,
         searchText: `${book.title} ${book.author} ${book.description}`.toLowerCase(),
       },
     });

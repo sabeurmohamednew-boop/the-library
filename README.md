@@ -1,6 +1,6 @@
 # The Library
 
-A minimalist self-hosted online library built with Next.js App Router, TypeScript, Prisma, SQLite, PDF.js, and epub.js.
+A minimalist self-hosted online library built with Next.js App Router, TypeScript, Prisma, Neon Postgres, Vercel Blob, PDF.js, and epub.js.
 
 The public site opens directly on the library. There are no reader accounts, signups, public upload controls, marketing pages, hero sections, pricing blocks, or promotional sections.
 
@@ -8,41 +8,33 @@ The public site opens directly on the library. There are no reader accounts, sig
 
 - Next.js App Router
 - TypeScript
-- Prisma Client with SQLite
+- Prisma Client with PostgreSQL
+- Neon Postgres for durable book metadata
+- Vercel Blob for durable book files and cover images
 - PDF.js for PDF reading
 - epub.js for EPUB reading
-- Local filesystem storage under `storage/books` and `storage/covers`
 - Browser `localStorage` for reader preferences, progress, and bookmarks
+
+## Environment
+
+Create environment variables from `.env.example`:
+
+```env
+DATABASE_URL="postgresql://USER:PASSWORD@HOST-pooler.REGION.aws.neon.tech/DB?sslmode=require"
+DIRECT_URL="postgresql://USER:PASSWORD@HOST.REGION.aws.neon.tech/DB?sslmode=require"
+ADMIN_PASSWORD="replace-with-a-long-private-password"
+ADMIN_SESSION_SECRET="replace-with-a-long-random-session-secret"
+BLOB_READ_WRITE_TOKEN="vercel_blob_rw_replace_with_project_token"
+```
+
+Use Neon's pooled connection string for `DATABASE_URL`. Use Neon's direct connection string for `DIRECT_URL`, which Prisma CLI uses for migrations.
 
 ## Setup
 
 ```bash
 npm install
-```
-
-Create environment variables from `.env.example`:
-
-```env
-DATABASE_URL="file:./dev.db"
-ADMIN_PASSWORD="replace-with-a-long-private-password"
-ADMIN_SESSION_SECRET="replace-with-a-long-random-session-secret"
-```
-
-Initialize the SQLite table and indexes:
-
-```bash
-npm run db:init
-```
-
-Seed sample metadata, PDFs, EPUBs, and local cover images:
-
-```bash
+npm run db:migrate
 npm run db:seed
-```
-
-Start development:
-
-```bash
 npm run dev
 ```
 
@@ -60,7 +52,7 @@ Then open:
 http://192.168.0.100:3000
 ```
 
-The local `.env` file should define `DATABASE_URL="file:./dev.db"` for the SQLite database at `prisma/dev.db`. The Next.js dev config allows `192.168.0.100` as a development origin so phone requests to dev assets and HMR are not blocked. If your PC gets a different LAN IP later, update `allowedDevOrigins` in `next.config.ts` and use that address on your phone.
+The Next.js dev config allows `192.168.0.100` as a development origin so phone requests to dev assets and HMR are not blocked. If your PC gets a different LAN IP later, update `allowedDevOrigins` in `next.config.ts` and use that address on your phone.
 
 ## Production
 
@@ -71,28 +63,19 @@ npm run build
 npm run start
 ```
 
-For a deployed server, set the same environment variables from `.env.example` in the hosting environment. Keep `ADMIN_PASSWORD` and `ADMIN_SESSION_SECRET` long, private, and different from the example values.
+On Vercel, set the environment variables from `.env.example`, connect a Neon Postgres database, and connect a Vercel Blob store to the project. Run migrations against Neon before relying on the deployment:
 
-SQLite and local uploads are intentionally simple for self-hosting, but both need persistent storage in production:
-
-- `DATABASE_URL` should point to a SQLite file on a persistent disk or volume.
-- `storage/books` and `storage/covers` must be writable by the app process and backed up.
-- Containers, serverless filesystems, and ephemeral hosts need a mounted volume for both the SQLite database and `storage/`.
-- If the app sits behind a reverse proxy, configure request body limits high enough for owner EPUB/PDF uploads.
-
-### Vercel demo deployment
-
-The current Vercel demo setup can use:
-
-```env
-DATABASE_URL="file:./dev.db"
-ADMIN_PASSWORD="..."
-ADMIN_SESSION_SECRET="..."
+```bash
+npm run db:migrate
 ```
 
-During Vercel builds, `npm run build` regenerates Prisma Client and prepares a temporary seeded SQLite demo database with local sample files. The generated demo database and sample storage files are included in Vercel's serverless output for reading.
+Seed sample books only if you want demo content in Blob:
 
-This is suitable for a demo deployment only. Vercel's serverless filesystem is not persistent for owner uploads or durable database writes, so admin imports/edits/deletes may not survive redeploys or may fail depending on runtime filesystem permissions.
+```bash
+npm run db:seed
+```
+
+`npm run build` runs `prisma generate` before `next build`, and `postinstall` also regenerates Prisma Client for Vercel's dependency cache.
 
 ## Owner Import Workflow
 
@@ -104,7 +87,13 @@ The private import page is:
 
 It is not linked from the public library. The route requires `ADMIN_PASSWORD`; a successful password check sets an HTTP-only owner session cookie. Readers never see upload controls.
 
-The import form lets the owner upload a PDF or EPUB, upload a cover image, enter required metadata, and save the book into SQLite plus local storage. Upload date is set automatically. The library listing updates immediately because pages read from the database on request.
+The import form uploads PDF/EPUB files and cover images directly from the browser to Vercel Blob through the protected Blob client-upload token route:
+
+```text
+/api/admin/blob/upload
+```
+
+After Blob upload completes, the admin API saves metadata and Blob URLs/pathnames in Postgres. Upload date is set automatically. The library listing updates immediately because pages read from the database on request.
 
 Accepted book files:
 
@@ -120,14 +109,16 @@ Accepted cover images:
 
 ## Storage
 
-Book files and covers are stored outside `public/`:
+Book files and covers are stored in Vercel Blob. The database stores Blob URLs and pathnames:
 
 ```text
-storage/books
-storage/covers
+bookBlobUrl
+bookBlobPath
+coverBlobUrl
+coverBlobPath
 ```
 
-Public readers access them through API routes:
+Public readers still access books through stable app routes:
 
 ```text
 /api/books/[slug]/file
@@ -140,13 +131,13 @@ Downloads use:
 /api/books/[slug]/file?download=1
 ```
 
-PDF file streaming supports byte ranges so PDF.js can seek efficiently.
+The file route proxies Blob responses and forwards byte range requests so PDF.js can seek efficiently.
 
 ## Reader Features
 
 The shared reader shell handles:
 
-- Back to library
+- Back to The Library
 - Book title
 - Search in book
 - Table of contents panel
@@ -218,9 +209,13 @@ The database stores:
 - `pageCount`
 - `publicationDate`
 - `uploadDate`
-- `coverImagePath`
-- `filePath`
+- `bookBlobUrl`
+- `bookBlobPath`
+- `coverBlobUrl`
+- `coverBlobPath`
 - `fileSize`
+- `fileContentType`
+- `coverContentType`
 - `searchText`
 - `createdAt`
 - `updatedAt`
@@ -243,15 +238,18 @@ npm run build
 npm run start
 npm run lint
 npm run typecheck
-npm run db:init
+npm run db:generate
+npm run db:migrate
+npm run db:push
 npm run db:seed
 ```
 
-`postinstall` copies the PDF.js worker into `public/pdf.worker.mjs` for self-hosted PDF rendering.
+`postinstall` copies the PDF.js worker into `public/pdf.worker.mjs` for self-hosted PDF rendering after Prisma Client generation.
 
 ## Notes
 
-- No third-party paid services are required.
 - No public authentication is implemented for readers.
-- Uploaded files are local to the server filesystem for now.
-- The SQLite setup script creates the table and indexes with Prisma Client, then the app uses Prisma Client for all database reads and writes.
+- Owner uploads require a valid admin session before a Blob client-upload token is issued.
+- Old local files under `storage/books` and `storage/covers` are no longer used by the app after this migration.
+- Vercel Blob and Neon are persistent across deploys, unlike Vercel's serverless filesystem.
+- For very large PDFs/EPUBs, the admin flow uses Vercel Blob client uploads so files do not pass through the Next.js server request body.

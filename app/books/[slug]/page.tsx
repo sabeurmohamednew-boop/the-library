@@ -8,7 +8,7 @@ import { ShareButton } from "@/components/ShareButton";
 import { categoryLabel } from "@/lib/config";
 import { authorPath } from "@/lib/authors";
 import { getBookBySlug, getRelatedBooks } from "@/lib/books";
-import { storageFileExists } from "@/lib/storage";
+import { bookFileAvailable } from "@/lib/storage";
 import { formatDate, formatFileSize } from "@/lib/text";
 
 export const dynamic = "force-dynamic";
@@ -39,7 +39,7 @@ export default async function BookPage({ params }: BookPageProps) {
 
   const [relatedBooks, fileAvailable] = await Promise.all([
     getRelatedBooks(book.slug),
-    storageFileExists(book.filePath),
+    Promise.resolve(bookFileAvailable(book)),
   ]);
 
   return (
