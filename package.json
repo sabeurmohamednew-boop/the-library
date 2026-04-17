@@ -1,0 +1,48 @@
+{
+  "name": "the-library",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "db:generate": "prisma generate",
+    "db:init": "prisma generate && tsx prisma/init-db.ts",
+    "db:push": "tsx prisma/init-db.ts",
+    "db:seed": "tsx prisma/seed.ts",
+    "postinstall": "node scripts/copy-pdf-worker.mjs"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "A minimalist self-hosted online library focused on reading.",
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
+  "overrides": {
+    "@xmldom/xmldom": "0.8.12"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.22.0",
+    "epubjs": "^0.3.93",
+    "jszip": "^3.10.1",
+    "lucide-react": "^1.8.0",
+    "next": "^16.2.4",
+    "pdfjs-dist": "^5.6.205",
+    "prisma": "^5.22.0",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "eslint": "^9.39.4",
+    "eslint-config-next": "^16.2.4",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  }
+}

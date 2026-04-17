@@ -1,0 +1,18 @@
+.next/
+node_modules/
+dist/
+out/
+build/
+.env
+.env*.local
+*.tsbuildinfo
+
+# Local runtime data. Keep the folder structure, not uploaded books.
+storage/books/*
+storage/covers/*
+!storage/books/.gitkeep
+!storage/covers/.gitkeep
+
+# SQLite runtime databases.
+prisma/*.db
+prisma/*.db-journal
