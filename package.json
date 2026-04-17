@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "prisma generate && node scripts/prepare-vercel-demo.mjs && next build",
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
@@ -12,7 +12,7 @@
     "db:init": "prisma generate && tsx prisma/init-db.ts",
     "db:push": "tsx prisma/init-db.ts",
     "db:seed": "tsx prisma/seed.ts",
-    "postinstall": "node scripts/copy-pdf-worker.mjs"
+    "postinstall": "prisma generate && node scripts/copy-pdf-worker.mjs"
   },
   "keywords": [],
   "author": "",

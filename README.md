@@ -80,6 +80,20 @@ SQLite and local uploads are intentionally simple for self-hosting, but both nee
 - Containers, serverless filesystems, and ephemeral hosts need a mounted volume for both the SQLite database and `storage/`.
 - If the app sits behind a reverse proxy, configure request body limits high enough for owner EPUB/PDF uploads.
 
+### Vercel demo deployment
+
+The current Vercel demo setup can use:
+
+```env
+DATABASE_URL="file:./dev.db"
+ADMIN_PASSWORD="..."
+ADMIN_SESSION_SECRET="..."
+```
+
+During Vercel builds, `npm run build` regenerates Prisma Client and prepares a temporary seeded SQLite demo database with local sample files. The generated demo database and sample storage files are included in Vercel's serverless output for reading.
+
+This is suitable for a demo deployment only. Vercel's serverless filesystem is not persistent for owner uploads or durable database writes, so admin imports/edits/deletes may not survive redeploys or may fail depending on runtime filesystem permissions.
+
 ## Owner Import Workflow
 
 The private import page is:
