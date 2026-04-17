@@ -1,10 +1,15 @@
 import { LibraryClient } from "@/components/library/LibraryClient";
-import { getAllBooks } from "@/lib/books";
+import { RuntimeNotice } from "@/components/RuntimeNotice";
+import { safeGetAllBooks } from "@/lib/books";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const books = await getAllBooks();
+  const result = await safeGetAllBooks();
 
-  return <LibraryClient books={books} />;
+  if (!result.ok) {
+    return <RuntimeNotice failure={result.error} title="The Library could not load." adminHref="/admin" />;
+  }
+
+  return <LibraryClient books={result.data} />;
 }

@@ -16,7 +16,11 @@ function inferTitle(fileName: string) {
     .trim();
 }
 
-export function AdminImportForm() {
+type AdminImportFormProps = {
+  blobConfigured: boolean;
+};
+
+export function AdminImportForm({ blobConfigured }: AdminImportFormProps) {
   const formRef = useRef<HTMLFormElement>(null);
   const [title, setTitle] = useState("");
   const [author, setAuthor] = useState("");
@@ -41,6 +45,12 @@ export function AdminImportForm() {
     setError("");
     setFieldErrors({});
     setCreated(null);
+
+    if (!blobConfigured) {
+      setSubmitting(false);
+      setError("Vercel Blob is not configured. Add BLOB_READ_WRITE_TOKEN before importing books.");
+      return;
+    }
 
     const formData = new FormData(event.currentTarget);
     formData.set("title", title);
@@ -123,6 +133,9 @@ export function AdminImportForm() {
       <div className="notice">
         This owner-only route uploads files to Vercel Blob and creates a database record immediately.
       </div>
+      {!blobConfigured ? (
+        <div className="error-state">Vercel Blob is not configured. Add BLOB_READ_WRITE_TOKEN in Vercel before importing books.</div>
+      ) : null}
 
       <div className="form-grid">
         <label className="label span-2">
@@ -211,7 +224,7 @@ export function AdminImportForm() {
       ) : null}
 
       <div className="action-row">
-        <button className="button primary" type="submit" disabled={submitting}>
+        <button className="button primary" type="submit" disabled={submitting || !blobConfigured}>
           {submitting ? "Uploading" : "Import book"}
         </button>
         <Link className="button" href="/">

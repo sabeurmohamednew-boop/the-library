@@ -1,12 +1,20 @@
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { isAdminSession } from "@/lib/adminAuth";
+import { authorPath } from "@/lib/authors";
 import { serializeBook } from "@/lib/books";
 import { bookCreateSchema } from "@/lib/validation";
 import { bookDataFromInput, coverDataFromBlob, fileDataFromBlob, safeAdminError, uniqueSlug } from "@/lib/adminBooks";
-import { deleteBlobIfPresent, validateBookBlob, validateCoverBlob } from "@/lib/storage";
+import { blobStoreConfigured, deleteBlobIfPresent, validateBookBlob, validateCoverBlob } from "@/lib/storage";
 
 export const runtime = "nodejs";
+
+function revalidateCreatePaths(book: { slug: string; author: string }) {
+  for (const path of ["/", "/admin", "/admin/books", `/books/${book.slug}`, `/read/${book.slug}`, authorPath(book.author)]) {
+    revalidatePath(path);
+  }
+}
 
 function blobPathsFromBody(body: unknown) {
   if (!body || typeof body !== "object") return [];
@@ -20,6 +28,10 @@ function blobPathsFromBody(body: unknown) {
 export async function POST(request: Request) {
   if (!(await isAdminSession())) {
     return NextResponse.json({ error: "Owner session required." }, { status: 401 });
+  }
+
+  if (!blobStoreConfigured()) {
+    return NextResponse.json({ error: "Vercel Blob is not configured. Add BLOB_READ_WRITE_TOKEN before importing books." }, { status: 503 });
   }
 
   const uploadedPaths: string[] = [];
@@ -62,6 +74,7 @@ export async function POST(request: Request) {
         uploadDate: new Date(),
       },
     });
+    revalidateCreatePaths(book);
 
     return NextResponse.json({
       ok: true,

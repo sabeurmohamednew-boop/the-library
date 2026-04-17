@@ -1,6 +1,7 @@
 import path from "node:path";
 import { NextResponse } from "next/server";
 import { getBookBySlug } from "@/lib/books";
+import { logRuntimeFailure, runtimeFailure } from "@/lib/runtime";
 import { sanitizeFileStem } from "@/lib/storage";
 
 export const runtime = "nodejs";
@@ -28,7 +29,15 @@ function copyHeader(source: Headers, target: Headers, name: string) {
 async function handleFileRequest(request: Request, context: RouteContext, headOnly = false) {
   const { slug } = await context.params;
   const decodedSlug = decodeURIComponent(slug);
-  const book = await getBookBySlug(decodedSlug);
+  let book;
+
+  try {
+    book = await getBookBySlug(decodedSlug);
+  } catch (error) {
+    const failure = runtimeFailure("book-file.lookup", error);
+    logRuntimeFailure(failure, { slug: decodedSlug });
+    return NextResponse.json({ error: failure.userMessage }, { status: 503 });
+  }
 
   if (!book) {
     return NextResponse.json({ error: "Book not found." }, { status: 404 });

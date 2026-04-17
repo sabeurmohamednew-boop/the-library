@@ -1,6 +1,7 @@
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { NextResponse } from "next/server";
 import { isAdminSession } from "@/lib/adminAuth";
+import { blobStoreConfigured } from "@/lib/storage";
 
 export const runtime = "nodejs";
 
@@ -24,6 +25,10 @@ export async function POST(request: Request) {
 
   if (body.type === "blob.generate-client-token" && !(await isAdminSession())) {
     return NextResponse.json({ error: "Owner session required." }, { status: 401 });
+  }
+
+  if (!blobStoreConfigured()) {
+    return NextResponse.json({ error: "Vercel Blob is not configured. Add BLOB_READ_WRITE_TOKEN before uploading books." }, { status: 503 });
   }
 
   try {

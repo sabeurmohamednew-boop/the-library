@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 import { BOOK_CATEGORIES, BOOK_FORMATS } from "@/lib/config";
 import type { BookDTO } from "@/lib/types";
@@ -11,13 +12,15 @@ type FieldErrors = Record<string, string[] | undefined>;
 
 type AdminBookEditFormProps = {
   book: BookDTO;
+  blobConfigured: boolean;
 };
 
 function dateInputValue(value: string) {
   return new Date(value).toISOString().slice(0, 10);
 }
 
-export function AdminBookEditForm({ book }: AdminBookEditFormProps) {
+export function AdminBookEditForm({ book, blobConfigured }: AdminBookEditFormProps) {
+  const router = useRouter();
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [saved, setSaved] = useState<BookDTO | null>(null);
@@ -33,6 +36,12 @@ export function AdminBookEditForm({ book }: AdminBookEditFormProps) {
     const formData = new FormData(event.currentTarget);
     const replacementBook = formData.get("bookFile") as File | null;
     const replacementCover = formData.get("coverFile") as File | null;
+
+    if (!blobConfigured && (replacementBook?.size || replacementCover?.size)) {
+      setSubmitting(false);
+      setError("Vercel Blob is not configured. Add BLOB_READ_WRITE_TOKEN before replacing files.");
+      return;
+    }
 
     try {
       const [bookBlob, coverBlob] = await Promise.all([
@@ -66,6 +75,7 @@ export function AdminBookEditForm({ book }: AdminBookEditFormProps) {
       }
 
       setSaved(payload.book);
+      router.refresh();
     } catch (uploadError) {
       setSubmitting(false);
       setError(uploadError instanceof Error ? uploadError.message : "The replacement files could not be uploaded.");
@@ -83,17 +93,22 @@ export function AdminBookEditForm({ book }: AdminBookEditFormProps) {
       <div className="notice">
         The slug stays unchanged when the title changes, so existing reader and detail links remain stable.
       </div>
+      {!blobConfigured ? (
+        <div className="notice">
+          Vercel Blob is not configured. Metadata can still be edited, but replacing files requires BLOB_READ_WRITE_TOKEN.
+        </div>
+      ) : null}
 
       <div className="form-grid">
         <label className="label span-2">
           Replace book file
-          <input className="field" type="file" name="bookFile" accept=".pdf,.epub,application/pdf,application/epub+zip" />
+          <input className="field" type="file" name="bookFile" accept=".pdf,.epub,application/pdf,application/epub+zip" disabled={!blobConfigured} />
           {fieldError("bookFile")}
         </label>
 
         <label className="label span-2">
           Replace cover
-          <input className="field" type="file" name="coverFile" accept="image/png,image/jpeg,image/webp,image/avif" />
+          <input className="field" type="file" name="coverFile" accept="image/png,image/jpeg,image/webp,image/avif" disabled={!blobConfigured} />
           {fieldError("coverFile")}
         </label>
 

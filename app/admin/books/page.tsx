@@ -8,6 +8,7 @@ import { BOOK_CATEGORIES, BOOK_FORMATS, categoryLabel } from "@/lib/config";
 import { adminPasswordConfigured, isAdminSession } from "@/lib/adminAuth";
 import { serializeBook } from "@/lib/books";
 import { prisma } from "@/lib/db";
+import { safeRuntime } from "@/lib/runtime";
 import { formatDate } from "@/lib/text";
 
 export const dynamic = "force-dynamic";
@@ -58,23 +59,42 @@ export default async function AdminBooksPage({ searchParams }: AdminBooksPagePro
     );
   }
 
-  const books = (
-    await prisma.book.findMany({
-      where: {
-        ...(format ? { format } : {}),
-        ...(category ? { category } : {}),
-        ...(query
-          ? {
-              OR: [
-                { title: { contains: query } },
-                { author: { contains: query } },
-              ],
-            }
-          : {}),
-      },
-      orderBy: [{ uploadDate: "desc" }, { title: "asc" }],
-    })
-  ).map(serializeBook);
+  const booksResult = await safeRuntime("admin.books", async () =>
+    (
+      await prisma.book.findMany({
+        where: {
+          ...(format ? { format } : {}),
+          ...(category ? { category } : {}),
+          ...(query
+            ? {
+                OR: [
+                  { title: { contains: query } },
+                  { author: { contains: query } },
+                ],
+              }
+            : {}),
+        },
+        orderBy: [{ uploadDate: "desc" }, { title: "asc" }],
+      })
+    ).map(serializeBook),
+  );
+
+  if (!booksResult.ok) {
+    return (
+      <main className="admin-shell wide" id="main">
+        <div className="page-topline">
+          <div>
+            <h1 className="site-title">Manage books</h1>
+            <p className="muted small">Owner dashboard</p>
+          </div>
+          <AdminNav />
+        </div>
+        <div className="error-state">{booksResult.error.userMessage}</div>
+      </main>
+    );
+  }
+
+  const books = booksResult.data;
 
   return (
     <main className="admin-shell wide" id="main">

@@ -3,6 +3,7 @@ import "server-only";
 import path from "node:path";
 import { prisma } from "@/lib/db";
 import { buildBookSearchText } from "@/lib/books";
+import { runtimeFailure, logRuntimeFailure } from "@/lib/runtime";
 import { slugify } from "@/lib/slug";
 import { contentTypeForFormat, validateBookBlob } from "@/lib/storage";
 import type { BlobDescriptor, BookDTO, BookFormat } from "@/lib/types";
@@ -81,10 +82,9 @@ export function validateReplacementFormat(currentPath: string, currentContentTyp
 }
 
 export function safeAdminError(error: unknown, fallback = "The request could not be completed.") {
-  if (process.env.NODE_ENV !== "production") {
-    console.error(error);
-  }
-  return fallback;
+  const failure = runtimeFailure("admin.request", error);
+  logRuntimeFailure(failure);
+  return failure.userMessage === "The Library could not load this data. Please try again shortly." ? fallback : failure.userMessage;
 }
 
 export function adminBookUrl(book: Pick<BookDTO, "id">) {

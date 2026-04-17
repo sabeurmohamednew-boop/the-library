@@ -4,10 +4,11 @@ import { notFound } from "next/navigation";
 import { BookCard } from "@/components/library/BookCard";
 import { BookBookmarkButton } from "@/components/library/BookBookmarkButton";
 import { BookCover } from "@/components/library/BookCover";
+import { RuntimeNotice } from "@/components/RuntimeNotice";
 import { ShareButton } from "@/components/ShareButton";
 import { categoryLabel } from "@/lib/config";
 import { authorPath } from "@/lib/authors";
-import { getBookBySlug, getRelatedBooks } from "@/lib/books";
+import { safeGetBookBySlug, safeGetRelatedBooks } from "@/lib/books";
 import { bookFileAvailable } from "@/lib/storage";
 import { formatDate, formatFileSize } from "@/lib/text";
 
@@ -19,28 +20,36 @@ type BookPageProps = {
 
 export async function generateMetadata({ params }: BookPageProps): Promise<Metadata> {
   const { slug } = await params;
-  const book = await getBookBySlug(decodeURIComponent(slug));
+  const result = await safeGetBookBySlug(decodeURIComponent(slug));
 
-  if (!book) {
+  if (!result.ok) {
+    return { title: "The Library is unavailable" };
+  }
+
+  if (!result.data) {
     return { title: "Book not found" };
   }
 
   return {
-    title: book.title,
-    description: book.description,
+    title: result.data.title,
+    description: result.data.description,
   };
 }
 
 export default async function BookPage({ params }: BookPageProps) {
   const { slug } = await params;
-  const book = await getBookBySlug(decodeURIComponent(slug));
+  const bookResult = await safeGetBookBySlug(decodeURIComponent(slug));
 
+  if (!bookResult.ok) {
+    return <RuntimeNotice failure={bookResult.error} title="This book could not load." />;
+  }
+
+  const book = bookResult.data;
   if (!book) notFound();
 
-  const [relatedBooks, fileAvailable] = await Promise.all([
-    getRelatedBooks(book.slug),
-    Promise.resolve(bookFileAvailable(book)),
-  ]);
+  const relatedResult = await safeGetRelatedBooks(book.slug);
+  const relatedBooks = relatedResult.ok ? relatedResult.data : [];
+  const fileAvailable = bookFileAvailable(book);
 
   return (
     <main className="site-shell" id="main">
@@ -71,6 +80,9 @@ export default async function BookPage({ params }: BookPageProps) {
 
           {!fileAvailable ? (
             <div className="error-state">The stored book file is currently unavailable. The metadata remains visible.</div>
+          ) : null}
+          {!relatedResult.ok ? (
+            <div className="error-state">Related books are temporarily unavailable.</div>
           ) : null}
 
           <div className="action-row">

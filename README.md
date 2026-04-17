@@ -29,6 +29,14 @@ BLOB_READ_WRITE_TOKEN="vercel_blob_rw_replace_with_project_token"
 
 Use Neon's pooled connection string for `DATABASE_URL`. Use Neon's direct connection string for `DIRECT_URL`, which Prisma CLI uses for migrations.
 
+For local development with the same Vercel project variables, pull them with:
+
+```bash
+vercel env pull .env.local
+```
+
+Next.js reads `.env.local` automatically. Prisma CLI commands such as `npm run db:migrate` read `.env`, so either copy the Neon `DATABASE_URL` and `DIRECT_URL` into `.env` for local migration work or export them in your shell before running Prisma commands. Keep `BLOB_READ_WRITE_TOKEN` in environment variables only; the app reads it from `process.env.BLOB_READ_WRITE_TOKEN` and never hardcodes it.
+
 ## Setup
 
 ```bash
@@ -69,6 +77,8 @@ On Vercel, set the environment variables from `.env.example`, connect a Neon Pos
 npm run db:migrate
 ```
 
+If the migration has not been applied yet, public pages render a clear database-not-ready message instead of crashing, but no library data can load until the Neon schema exists.
+
 Seed sample books only if you want demo content in Blob:
 
 ```bash
@@ -94,6 +104,8 @@ The import form uploads PDF/EPUB files and cover images directly from the browse
 ```
 
 After Blob upload completes, the admin API saves metadata and Blob URLs/pathnames in Postgres. Upload date is set automatically. The library listing updates immediately because pages read from the database on request.
+
+If `BLOB_READ_WRITE_TOKEN` is missing, public browsing can still render metadata already stored in Neon, but import, replacement upload, and delete actions are blocked with an admin-facing error.
 
 Accepted book files:
 

@@ -11,6 +11,10 @@ const BOOK_CONTENT_TYPES = {
 
 const COVER_CONTENT_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/avif"]);
 
+export function blobStoreConfigured() {
+  return Boolean(process.env.BLOB_READ_WRITE_TOKEN?.trim());
+}
+
 export function sanitizeFileStem(value: string) {
   const sanitized = value
     .normalize("NFKD")
@@ -90,12 +94,15 @@ export function validateCoverBlob(blob: BlobDescriptor) {
 export async function deleteBlobIfPresent(value: string | null | undefined) {
   if (!value) return;
 
+  if (!blobStoreConfigured()) {
+    console.warn("[blob] delete skipped because BLOB_READ_WRITE_TOKEN is not configured.");
+    return;
+  }
+
   try {
     await del(value);
   } catch (error) {
-    if (process.env.NODE_ENV !== "production") {
-      console.warn("[blob] delete failed", error);
-    }
+    console.warn("[blob] delete failed", error);
   }
 }
 

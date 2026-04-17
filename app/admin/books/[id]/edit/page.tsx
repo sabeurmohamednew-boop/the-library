@@ -7,7 +7,8 @@ import { AdminLogin } from "@/components/admin/AdminLogin";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { BookCover } from "@/components/library/BookCover";
 import { adminPasswordConfigured, isAdminSession } from "@/lib/adminAuth";
-import { getBookById } from "@/lib/books";
+import { safeGetBookById } from "@/lib/books";
+import { blobStoreConfigured } from "@/lib/storage";
 
 export const dynamic = "force-dynamic";
 
@@ -50,7 +51,24 @@ export default async function EditBookPage({ params }: EditBookPageProps) {
   }
 
   const { id } = await params;
-  const book = await getBookById(id);
+  const bookResult = await safeGetBookById(id);
+
+  if (!bookResult.ok) {
+    return (
+      <main className="admin-shell" id="main">
+        <div className="page-topline">
+          <div>
+            <h1 className="site-title">Edit book</h1>
+            <p className="muted small">Owner dashboard</p>
+          </div>
+          <AdminNav />
+        </div>
+        <div className="error-state">{bookResult.error.userMessage}</div>
+      </main>
+    );
+  }
+
+  const book = bookResult.data;
   if (!book) notFound();
 
   return (
@@ -72,7 +90,7 @@ export default async function EditBookPage({ params }: EditBookPageProps) {
             <AdminDeleteButton id={book.id} title={book.title} />
           </div>
         </div>
-        <AdminBookEditForm book={book} />
+        <AdminBookEditForm book={book} blobConfigured={blobStoreConfigured()} />
       </section>
     </main>
   );

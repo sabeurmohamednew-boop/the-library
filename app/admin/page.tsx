@@ -4,6 +4,7 @@ import { AdminLogin } from "@/components/admin/AdminLogin";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { adminPasswordConfigured, isAdminSession } from "@/lib/adminAuth";
 import { prisma } from "@/lib/db";
+import { safeRuntime } from "@/lib/runtime";
 import { formatDate } from "@/lib/text";
 
 export const dynamic = "force-dynamic";
@@ -42,12 +43,33 @@ export default async function AdminPage() {
     );
   }
 
-  const [bookCount, pdfCount, epubCount, latestBook] = await Promise.all([
-    prisma.book.count(),
-    prisma.book.count({ where: { format: "PDF" } }),
-    prisma.book.count({ where: { format: "EPUB" } }),
-    prisma.book.findFirst({ orderBy: { uploadDate: "desc" } }),
-  ]);
+  const stats = await safeRuntime("admin.dashboard", async () => {
+    const [bookCount, pdfCount, epubCount, latestBook] = await Promise.all([
+      prisma.book.count(),
+      prisma.book.count({ where: { format: "PDF" } }),
+      prisma.book.count({ where: { format: "EPUB" } }),
+      prisma.book.findFirst({ orderBy: { uploadDate: "desc" } }),
+    ]);
+
+    return { bookCount, pdfCount, epubCount, latestBook };
+  });
+
+  if (!stats.ok) {
+    return (
+      <main className="admin-shell" id="main">
+        <div className="page-topline">
+          <div>
+            <h1 className="site-title">Admin</h1>
+            <p className="muted small">Owner dashboard</p>
+          </div>
+          <AdminNav />
+        </div>
+        <div className="error-state">{stats.error.userMessage}</div>
+      </main>
+    );
+  }
+
+  const { bookCount, pdfCount, epubCount, latestBook } = stats.data;
 
   return (
     <main className="admin-shell" id="main">

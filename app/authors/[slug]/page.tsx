@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BookCard } from "@/components/library/BookCard";
-import { getBooksByAuthorSlug } from "@/lib/books";
+import { RuntimeNotice } from "@/components/RuntimeNotice";
+import { safeGetBooksByAuthorSlug } from "@/lib/books";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +21,8 @@ function decodeSlug(value: string) {
 
 export async function generateMetadata({ params }: AuthorPageProps): Promise<Metadata> {
   const { slug } = await params;
-  const books = await getBooksByAuthorSlug(decodeSlug(slug));
+  const result = await safeGetBooksByAuthorSlug(decodeSlug(slug));
+  const books = result.ok ? result.data : [];
   const author = books[0]?.author;
 
   if (!author) {
@@ -35,8 +37,13 @@ export async function generateMetadata({ params }: AuthorPageProps): Promise<Met
 
 export default async function AuthorPage({ params }: AuthorPageProps) {
   const { slug } = await params;
-  const books = await getBooksByAuthorSlug(decodeSlug(slug));
+  const result = await safeGetBooksByAuthorSlug(decodeSlug(slug));
 
+  if (!result.ok) {
+    return <RuntimeNotice failure={result.error} title="Author books could not load." />;
+  }
+
+  const books = result.data;
   if (books.length === 0) notFound();
 
   const author = books[0].author;
