@@ -1,10 +1,26 @@
 import "server-only";
 
 import type { Book } from "@prisma/client";
+import { unstable_noStore as noStore } from "next/cache";
 import { prisma } from "@/lib/db";
 import { authorSlug } from "@/lib/authors";
 import { safeRuntime } from "@/lib/runtime";
 import type { BookDTO } from "@/lib/types";
+
+type BookIdentity = Pick<Book, "id" | "slug" | "title" | "author">;
+
+function bookIdentity(book: BookIdentity) {
+  return {
+    id: book.id,
+    slug: book.slug,
+    title: book.title,
+    author: book.author,
+  };
+}
+
+function logBookRead(scope: string, data: Record<string, unknown>) {
+  console.info("[book-read]", scope, data);
+}
 
 export function serializeBook(book: Book): BookDTO {
   return {
@@ -31,8 +47,13 @@ export function serializeBook(book: Book): BookDTO {
 }
 
 export async function getAllBooks() {
+  noStore();
   const books = await prisma.book.findMany({
     orderBy: [{ uploadDate: "desc" }, { title: "asc" }],
+  });
+  logBookRead("list", {
+    count: books.length,
+    books: books.map(bookIdentity),
   });
 
   return books.map(serializeBook);
@@ -43,8 +64,13 @@ export function safeGetAllBooks() {
 }
 
 export async function getBookBySlug(slug: string) {
+  noStore();
   const book = await prisma.book.findUnique({
     where: { slug },
+  });
+  logBookRead("bySlug", {
+    requestedSlug: slug,
+    book: book ? bookIdentity(book) : null,
   });
 
   return book ? serializeBook(book) : null;
@@ -55,8 +81,13 @@ export function safeGetBookBySlug(slug: string) {
 }
 
 export async function getBookById(id: string) {
+  noStore();
   const book = await prisma.book.findUnique({
     where: { id },
+  });
+  logBookRead("byId", {
+    requestedId: id,
+    book: book ? bookIdentity(book) : null,
   });
 
   return book ? serializeBook(book) : null;
@@ -67,6 +98,7 @@ export function safeGetBookById(id: string) {
 }
 
 export async function getRelatedBooks(slug: string) {
+  noStore();
   const book = await prisma.book.findUnique({ where: { slug } });
   if (!book) return [];
 
@@ -78,6 +110,10 @@ export async function getRelatedBooks(slug: string) {
     orderBy: [{ author: "asc" }, { uploadDate: "desc" }],
     take: 6,
   });
+  logBookRead("related", {
+    source: bookIdentity(book),
+    books: books.map(bookIdentity),
+  });
 
   return books.map(serializeBook);
 }
@@ -87,11 +123,17 @@ export function safeGetRelatedBooks(slug: string) {
 }
 
 export async function getBooksByAuthorSlug(slug: string) {
+  noStore();
   const books = await prisma.book.findMany({
     orderBy: [{ publicationDate: "desc" }, { title: "asc" }],
   });
+  const filtered = books.filter((book) => authorSlug(book.author) === slug);
+  logBookRead("byAuthor", {
+    requestedAuthorSlug: slug,
+    books: filtered.map(bookIdentity),
+  });
 
-  return books.filter((book) => authorSlug(book.author) === slug).map(serializeBook);
+  return filtered.map(serializeBook);
 }
 
 export function safeGetBooksByAuthorSlug(slug: string) {

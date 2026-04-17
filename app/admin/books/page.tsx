@@ -29,6 +29,10 @@ function single(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
 }
 
+function duplicateKey(book: { title: string; author: string }) {
+  return `${book.title.trim().toLowerCase()}::${book.author.trim().toLowerCase()}`;
+}
+
 export default async function AdminBooksPage({ searchParams }: AdminBooksPageProps) {
   const configured = adminPasswordConfigured();
   const authenticated = configured ? await isAdminSession() : false;
@@ -95,6 +99,11 @@ export default async function AdminBooksPage({ searchParams }: AdminBooksPagePro
   }
 
   const books = booksResult.data;
+  const duplicateCounts = new Map<string, number>();
+  for (const book of books) {
+    const key = duplicateKey(book);
+    duplicateCounts.set(key, (duplicateCounts.get(key) ?? 0) + 1);
+  }
 
   return (
     <main className="admin-shell wide" id="main">
@@ -143,6 +152,9 @@ export default async function AdminBooksPage({ searchParams }: AdminBooksPagePro
                   {book.title}
                 </Link>
                 <span className="book-author">By {book.author}</span>
+                <span className="muted small">ID {book.id}</span>
+                <span className="muted small">Slug {book.slug}</span>
+                {(duplicateCounts.get(duplicateKey(book)) ?? 0) > 1 ? <span className="muted small">Duplicate title/author</span> : null}
               </div>
               <div className="admin-book-meta">
                 <span>{book.format}</span>

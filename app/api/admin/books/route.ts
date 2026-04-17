@@ -16,6 +16,10 @@ function revalidateCreatePaths(book: { slug: string; author: string }) {
   }
 }
 
+function createLog(message: string, data?: Record<string, unknown>) {
+  console.info("[admin-book-create]", message, data ?? {});
+}
+
 function blobPathsFromBody(body: unknown) {
   if (!body || typeof body !== "object") return [];
   const record = body as Record<string, unknown>;
@@ -65,6 +69,20 @@ export async function POST(request: Request) {
     }
 
     const slug = await uniqueSlug(parsed.data.title);
+    const duplicateRows = await prisma.book.findMany({
+      where: {
+        title: parsed.data.title,
+        author: parsed.data.author,
+      },
+      select: { id: true, slug: true, title: true, author: true },
+      orderBy: [{ uploadDate: "desc" }, { title: "asc" }],
+    });
+    createLog("duplicate-check-before-create", {
+      title: parsed.data.title,
+      author: parsed.data.author,
+      duplicates: duplicateRows,
+    });
+
     const book = await prisma.book.create({
       data: {
         ...bookDataFromInput(parsed.data),
@@ -73,6 +91,12 @@ export async function POST(request: Request) {
         slug,
         uploadDate: new Date(),
       },
+    });
+    createLog("created-row", {
+      id: book.id,
+      slug: book.slug,
+      title: book.title,
+      author: book.author,
     });
     revalidateCreatePaths(book);
 

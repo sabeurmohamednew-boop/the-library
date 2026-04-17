@@ -63,6 +63,32 @@ function updateSummary(input: BookUpdateInput) {
   };
 }
 
+function rowSummary(book: {
+  id: string;
+  slug: string;
+  title: string;
+  description: string;
+  author: string;
+  format: string;
+  category: string;
+  pageCount: number;
+  publicationDate: Date;
+  updatedAt: Date;
+}) {
+  return {
+    id: book.id,
+    slug: book.slug,
+    title: book.title,
+    descriptionLength: book.description.length,
+    author: book.author,
+    format: book.format,
+    category: book.category,
+    pageCount: book.pageCount,
+    publicationDate: book.publicationDate.toISOString(),
+    updatedAt: book.updatedAt.toISOString(),
+  };
+}
+
 function metadataPersisted(book: { title: string; description: string; author: string; format: string; category: string; pageCount: number; publicationDate: Date }, input: BookUpdateInput) {
   return (
     book.title === input.title &&
@@ -75,15 +101,17 @@ function metadataPersisted(book: { title: string; description: string; author: s
   );
 }
 
-function revalidateBookPaths(book: { id: string; slug: string; author: string }, previousAuthor: string) {
+function revalidateBookPaths(book: { id: string; slug: string; author: string }, previous: { slug: string; author: string }) {
   const paths = [
     "/",
     "/admin",
     "/admin/books",
     `/admin/books/${book.id}/edit`,
+    `/books/${previous.slug}`,
     `/books/${book.slug}`,
+    `/read/${previous.slug}`,
     `/read/${book.slug}`,
-    authorPath(previousAuthor),
+    authorPath(previous.author),
     authorPath(book.author),
   ];
   const uniquePaths = Array.from(new Set(paths));
@@ -108,6 +136,7 @@ async function updateBook(request: Request, { params }: RouteContext) {
     if (!existing) {
       return NextResponse.json({ error: "Book not found." }, { status: 404 });
     }
+    editLog("existing-before-update", rowSummary(existing));
 
     const body = await request.json();
     editLog("incoming-payload", { id, ...payloadSummary(body) });
@@ -150,12 +179,14 @@ async function updateBook(request: Request, { params }: RouteContext) {
     };
     editLog("normalized-update", { id, ...updateSummary(parsed.data), updateKeys: Object.keys(updateData) });
 
-    await prisma.book.update({
+    const updated = await prisma.book.update({
       where: { id },
       data: updateData,
     });
+    editLog("prisma-update-result", rowSummary(updated));
 
     const persisted = await prisma.book.findUnique({ where: { id } });
+    editLog("row-after-update", persisted ? rowSummary(persisted) : { id, found: false });
     if (!persisted || !metadataPersisted(persisted, parsed.data)) {
       editLog("persistence-verification-failed", {
         id,
@@ -174,6 +205,24 @@ async function updateBook(request: Request, { params }: RouteContext) {
       throw new Error("Book update did not persist expected metadata.");
     }
 
+    const slugRow = await prisma.book.findUnique({ where: { slug: persisted.slug } });
+    editLog("slug-row-after-update", slugRow ? rowSummary(slugRow) : { slug: persisted.slug, found: false });
+    if (!slugRow || slugRow.id !== persisted.id) {
+      throw new Error("Book update persisted, but slug lookup resolves to a different row.");
+    }
+
+    const duplicateRows = await prisma.book.findMany({
+      where: {
+        title: persisted.title,
+        author: persisted.author,
+      },
+      select: { id: true, slug: true, title: true, author: true },
+      orderBy: [{ uploadDate: "desc" }, { title: "asc" }],
+    });
+    if (duplicateRows.length > 1) {
+      editLog("duplicate-title-author-rows", { rows: duplicateRows });
+    }
+
     if (parsed.data.bookBlob && existing.bookBlobPath !== parsed.data.bookBlob.pathname) {
       await deleteBlobIfPresent(existing.bookBlobPath);
     }
@@ -181,8 +230,8 @@ async function updateBook(request: Request, { params }: RouteContext) {
       await deleteBlobIfPresent(existing.coverBlobPath);
     }
 
-    revalidateBookPaths(persisted, existing.author);
-    editLog("prisma-update-result", {
+    revalidateBookPaths(persisted, { slug: existing.slug, author: existing.author });
+    editLog("verified-update-result", {
       id: persisted.id,
       slug: persisted.slug,
       title: persisted.title,

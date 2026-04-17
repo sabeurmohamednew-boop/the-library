@@ -70,6 +70,12 @@ export default async function EditBookPage({ params }: EditBookPageProps) {
 
   const book = bookResult.data;
   if (!book) notFound();
+  console.info("[admin-edit-page]", "loaded-book", {
+    id: book.id,
+    slug: book.slug,
+    title: book.title,
+    author: book.author,
+  });
 
   return (
     <main className="admin-shell" id="main">
@@ -77,6 +83,9 @@ export default async function EditBookPage({ params }: EditBookPageProps) {
         <div>
           <h1 className="site-title">Edit book</h1>
           <p className="muted small">{book.title}</p>
+          <p className="muted small">
+            ID {book.id} - Slug {book.slug}
+          </p>
         </div>
         <AdminNav />
       </div>

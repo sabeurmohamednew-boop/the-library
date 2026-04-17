@@ -48,33 +48,46 @@ export function AdminBookEditForm({ book, blobConfigured }: AdminBookEditFormPro
         replacementBook?.size ? uploadAdminBlob(replacementBook, "book", String(formData.get("title") ?? book.title)) : Promise.resolve(undefined),
         replacementCover?.size ? uploadAdminBlob(replacementCover, "cover", String(formData.get("title") ?? book.title)) : Promise.resolve(undefined),
       ]);
+      const payload = {
+        title: String(formData.get("title") ?? ""),
+        description: String(formData.get("description") ?? ""),
+        author: String(formData.get("author") ?? ""),
+        format: String(formData.get("format") ?? ""),
+        category: String(formData.get("category") ?? ""),
+        pageCount: String(formData.get("pageCount") ?? ""),
+        publicationDate: String(formData.get("publicationDate") ?? ""),
+        ...(bookBlob ? { bookBlob } : {}),
+        ...(coverBlob ? { coverBlob } : {}),
+      };
+      console.info("[admin-book-edit-form]", "submitting", {
+        id: book.id,
+        slug: book.slug,
+        title: payload.title,
+        author: payload.author,
+        format: payload.format,
+        category: payload.category,
+        pageCount: payload.pageCount,
+        publicationDate: payload.publicationDate,
+        hasBookBlob: Boolean(bookBlob),
+        hasCoverBlob: Boolean(coverBlob),
+      });
 
       const response = await fetch(`/api/admin/books/${book.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: String(formData.get("title") ?? ""),
-          description: String(formData.get("description") ?? ""),
-          author: String(formData.get("author") ?? ""),
-          format: String(formData.get("format") ?? ""),
-          category: String(formData.get("category") ?? ""),
-          pageCount: String(formData.get("pageCount") ?? ""),
-          publicationDate: String(formData.get("publicationDate") ?? ""),
-          ...(bookBlob ? { bookBlob } : {}),
-          ...(coverBlob ? { coverBlob } : {}),
-        }),
+        body: JSON.stringify(payload),
       });
 
-      const payload = (await response.json().catch(() => null)) as { error?: string; fieldErrors?: FieldErrors; book?: BookDTO } | null;
+      const responsePayload = (await response.json().catch(() => null)) as { error?: string; fieldErrors?: FieldErrors; book?: BookDTO } | null;
       setSubmitting(false);
 
-      if (!response.ok || !payload?.book) {
-        setError(payload?.error ?? "The book could not be saved.");
-        setFieldErrors(payload?.fieldErrors ?? {});
+      if (!response.ok || !responsePayload?.book) {
+        setError(responsePayload?.error ?? "The book could not be saved.");
+        setFieldErrors(responsePayload?.fieldErrors ?? {});
         return;
       }
 
-      setSaved(payload.book);
+      setSaved(responsePayload.book);
       router.refresh();
     } catch (uploadError) {
       setSubmitting(false);
