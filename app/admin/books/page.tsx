@@ -144,11 +144,11 @@ export default async function AdminBooksPage({ searchParams }: AdminBooksPagePro
         <div className="admin-book-list">
           {books.map((book) => (
             <article className="admin-book-row" key={book.id}>
-              <Link className="admin-thumb cover-link" href={`/admin/books/${book.id}/edit`} aria-label={`Edit ${book.title}`}>
+              <Link className="admin-thumb cover-link" href={`/admin/books/${book.id}/edit`} aria-label={`Edit ${book.title}`} prefetch={false}>
                 <BookCover book={book} />
               </Link>
               <div className="admin-book-main">
-                <Link className="book-title-link" href={`/admin/books/${book.id}/edit`}>
+                <Link className="book-title-link" href={`/admin/books/${book.id}/edit`} prefetch={false}>
                   {book.title}
                 </Link>
                 <span className="book-author">By {book.author}</span>
@@ -163,7 +163,7 @@ export default async function AdminBooksPage({ searchParams }: AdminBooksPagePro
                 <span>Uploaded {formatDate(book.uploadDate)}</span>
               </div>
               <div className="admin-row-actions">
-                <Link className="button" href={`/admin/books/${book.id}/edit`}>
+                <Link className="button" href={`/admin/books/${book.id}/edit`} prefetch={false}>
                   Edit
                 </Link>
                 <AdminDeleteButton id={book.id} title={book.title} />

@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { RouteFreshness } from "@/components/RouteFreshness";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -22,6 +23,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <a className="skip-link" href="#main">
           Skip to content
         </a>
+        <RouteFreshness />
         {children}
       </body>
     </html>

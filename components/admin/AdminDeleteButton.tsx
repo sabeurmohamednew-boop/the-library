@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { markLibraryContentChanged } from "@/lib/clientFreshness";
 
 type AdminDeleteButtonProps = {
   id: string;
@@ -33,6 +34,7 @@ export function AdminDeleteButton({ id, title, redirectTo = "/admin/books" }: Ad
       return;
     }
 
+    markLibraryContentChanged();
     router.push(redirectTo);
     router.refresh();
   }

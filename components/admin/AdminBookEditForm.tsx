@@ -1,9 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 import { BOOK_CATEGORIES, BOOK_FORMATS } from "@/lib/config";
+import { markLibraryContentChanged } from "@/lib/clientFreshness";
 import type { BookDTO } from "@/lib/types";
 import { formatDate } from "@/lib/text";
 import { uploadAdminBlob } from "@/lib/clientUploads";
@@ -88,6 +88,7 @@ export function AdminBookEditForm({ book, blobConfigured }: AdminBookEditFormPro
       }
 
       setSaved(responsePayload.book);
+      markLibraryContentChanged(responsePayload.book.updatedAt);
       router.refresh();
     } catch (uploadError) {
       setSubmitting(false);
@@ -191,15 +192,15 @@ export function AdminBookEditForm({ book, blobConfigured }: AdminBookEditFormPro
         <button className="button primary" type="submit" disabled={submitting}>
           {submitting ? "Saving" : "Save changes"}
         </button>
-        <Link className="button" href={`/books/${current.slug}`}>
+        <a className="button" href={`/books/${current.slug}`}>
           Details
-        </Link>
-        <Link className="button" href={`/read/${current.slug}`}>
+        </a>
+        <a className="button" href={`/read/${current.slug}`}>
           Reader
-        </Link>
-        <Link className="button" href="/admin/books">
+        </a>
+        <a className="button" href="/admin/books">
           Manage books
-        </Link>
+        </a>
       </div>
     </form>
   );

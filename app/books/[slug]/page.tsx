@@ -70,7 +70,7 @@ export default async function BookPage({ params }: BookPageProps) {
             <h1 id="book-title">{book.title}</h1>
             <p className="muted">
               By{" "}
-              <Link className="author-link inline-author-link" href={authorPath(book.author)}>
+              <Link className="author-link inline-author-link" href={authorPath(book.author)} prefetch={false}>
                 {book.author}
               </Link>
             </p>
@@ -86,7 +86,7 @@ export default async function BookPage({ params }: BookPageProps) {
           ) : null}
 
           <div className="action-row">
-            <Link className="button primary" href={`/read/${book.slug}`}>
+            <Link className="button primary" href={`/read/${book.slug}`} prefetch={false}>
               Read
             </Link>
             <a className="button" href={`/api/books/${book.slug}/file?download=1`}>

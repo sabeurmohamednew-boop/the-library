@@ -213,7 +213,7 @@ export function LibraryClient({ books }: LibraryClientProps) {
           </div>
           <div className="cover-grid continue-grid">
             {recentBooks.map((book) => (
-              <Link key={book.slug} className="cover-link" href={`/read/${book.slug}`} aria-label={`Resume ${book.title}`}>
+              <Link key={book.slug} className="cover-link" href={`/read/${book.slug}`} aria-label={`Resume ${book.title}`} prefetch={false}>
                 <span className="resume-badge">Resume</span>
                 <BookCover book={book} />
                 <span className="resume-detail">{resumeDetailFor(book)}</span>
@@ -257,7 +257,7 @@ export function LibraryClient({ books }: LibraryClientProps) {
         ) : view === "cover" ? (
           <div className="cover-grid">
             {visibleBooks.map((book) => (
-              <Link key={book.slug} className="cover-link" href={`/books/${book.slug}`} aria-label={`Open details for ${book.title}`}>
+              <Link key={book.slug} className="cover-link" href={`/books/${book.slug}`} aria-label={`Open details for ${book.title}`} prefetch={false}>
                 <BookCover book={book} />
               </Link>
             ))}
@@ -265,7 +265,7 @@ export function LibraryClient({ books }: LibraryClientProps) {
         ) : listMode === "titles" ? (
           <div className="library-list">
             {visibleBooks.map((book) => (
-              <Link key={book.slug} className="list-item" href={`/books/${book.slug}`}>
+              <Link key={book.slug} className="list-item" href={`/books/${book.slug}`} prefetch={false}>
                 <span>{book.title}</span>
                 <span className="muted small">{book.format}</span>
               </Link>
@@ -274,7 +274,7 @@ export function LibraryClient({ books }: LibraryClientProps) {
         ) : (
           <div className="library-list">
             {authorRows.slice(0, visibleCount).map(([author, count]) => (
-              <Link key={author} className="list-item" href={authorPath(author)} aria-label={`View books by ${author}`}>
+              <Link key={author} className="list-item" href={authorPath(author)} aria-label={`View books by ${author}`} prefetch={false}>
                 <span>{author}</span>
                 <span className="muted small">
                   {count} {count === 1 ? "book" : "books"}

@@ -17,25 +17,25 @@ export function BookCard({ book, started }: BookCardProps) {
 
   return (
     <article className="book-card">
-      <Link className="cover-link" href={`/books/${book.slug}`} aria-label={`Open details for ${book.title}`}>
+      <Link className="cover-link" href={`/books/${book.slug}`} aria-label={`Open details for ${book.title}`} prefetch={false}>
         <span className="format-badge">{book.format}</span>
         {started ? <span className="resume-badge">Resume</span> : null}
         <BookCover book={book} />
       </Link>
 
       <div className="book-card-body">
-        <Link className="book-title-link" href={`/books/${book.slug}`} title={book.title}>
+        <Link className="book-title-link" href={`/books/${book.slug}`} title={book.title} prefetch={false}>
           {title.text}
         </Link>
         <p className="book-description">
           {description.text}{" "}
           {description.truncated ? (
-            <Link href={`/books/${book.slug}`} aria-label={`Read more about ${book.title}`}>
+            <Link href={`/books/${book.slug}`} aria-label={`Read more about ${book.title}`} prefetch={false}>
               More
             </Link>
           ) : null}
         </p>
-        <Link className="book-author author-link" href={authorPath(book.author)} title={book.author} aria-label={`View books by ${book.author}`}>
+        <Link className="book-author author-link" href={authorPath(book.author)} title={book.author} aria-label={`View books by ${book.author}`} prefetch={false}>
           By {author.text}
         </Link>
         <div className="book-meta">
@@ -45,7 +45,7 @@ export function BookCard({ book, started }: BookCardProps) {
           <span>{categoryLabel(book.category)}</span>
         </div>
         <div className="card-actions">
-          <Link className="button primary" href={`/read/${book.slug}`}>
+          <Link className="button primary" href={`/read/${book.slug}`} prefetch={false}>
             Read
           </Link>
           <a className="button secondary" href={`/api/books/${book.slug}/file?download=1`}>

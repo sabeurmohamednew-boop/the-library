@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useRef, useState } from "react";
 import { BOOK_CATEGORIES, BOOK_FORMATS } from "@/lib/config";
+import { markLibraryContentChanged } from "@/lib/clientFreshness";
 import { uploadAdminBlob } from "@/lib/clientUploads";
 import type { BookDTO } from "@/lib/types";
 
@@ -113,6 +114,7 @@ export function AdminImportForm({ blobConfigured }: AdminImportFormProps) {
       }
 
       setCreated(payload.book);
+      markLibraryContentChanged(payload.book.updatedAt);
       formRef.current?.reset();
       setTitle("");
       setAuthor("");
@@ -208,17 +210,17 @@ export function AdminImportForm({ blobConfigured }: AdminImportFormProps) {
       {error ? <p className="error-state">{error}</p> : null}
       {created ? (
         <div className="notice">
-          Imported <Link href={`/books/${created.slug}`}>{created.title}</Link>.
+          Imported <a href={`/books/${created.slug}`}>{created.title}</a>.
           <div className="action-row compact">
-            <Link className="button" href={`/books/${created.slug}`}>
+            <a className="button" href={`/books/${created.slug}`}>
               Details
-            </Link>
-            <Link className="button" href={`/read/${created.slug}`}>
+            </a>
+            <a className="button" href={`/read/${created.slug}`}>
               Reader
-            </Link>
-            <Link className="button" href="/admin/books">
+            </a>
+            <a className="button" href="/admin/books">
               Manage books
-            </Link>
+            </a>
           </div>
         </div>
       ) : null}
@@ -227,10 +229,10 @@ export function AdminImportForm({ blobConfigured }: AdminImportFormProps) {
         <button className="button primary" type="submit" disabled={submitting || !blobConfigured}>
           {submitting ? "Uploading" : "Import book"}
         </button>
-        <Link className="button" href="/">
+        <Link className="button" href="/" prefetch={false}>
           The Library
         </Link>
-        <Link className="button" href="/admin/books">
+        <Link className="button" href="/admin/books" prefetch={false}>
           Manage books
         </Link>
       </div>
