@@ -250,7 +250,7 @@ canvas {
 .library-header-actions {
   display: grid;
   justify-items: end;
-  gap: 56px;
+  gap: 12px;
   min-width: 0;
 }
 
