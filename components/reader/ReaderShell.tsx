@@ -629,6 +629,7 @@ export function ReaderShell({ book }: ReaderShellProps) {
             updateState={updateState}
             close={() => setPanel(null)}
             goTo={(locator) => {
+              console.info("[reader-shell] navigation:goTo", { at: new Date().toISOString(), slug: book.slug, locator });
               issueCommand({ type: "goTo", locator });
               setPanel(null);
             }}
@@ -742,7 +743,16 @@ function TocPanel({ toc, goTo }: { toc: TocItem[]; goTo: (locator: ReaderLocator
   return (
     <div className="panel-list">
       {toc.map((item) => (
-        <button key={item.id} className="button toc-button" type="button" onClick={() => goTo(item.locator)} style={{ paddingLeft: `${10 + (item.depth ?? 0) * 14}px` }}>
+        <button
+          key={item.id}
+          className="button toc-button"
+          type="button"
+          onClick={() => {
+            console.info("[reader-shell] toc:click", { at: new Date().toISOString(), label: item.label, locator: item.locator, depth: item.depth ?? 0 });
+            goTo(item.locator);
+          }}
+          style={{ paddingLeft: `${10 + (item.depth ?? 0) * 14}px` }}
+        >
           {item.label}
         </button>
       ))}

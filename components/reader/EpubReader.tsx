@@ -36,6 +36,70 @@ function flattenToc(items: any[] = [], depth = 0): TocItem[] {
   return output;
 }
 
+function safeDecodeUri(value: string) {
+  try {
+    return decodeURI(value);
+  } catch {
+    return value;
+  }
+}
+
+function safeDecodeUriComponent(value: string) {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
+function splitHrefFragment(href: string) {
+  const hashIndex = href.indexOf("#");
+  if (hashIndex < 0) return { base: href, fragment: "" };
+  return {
+    base: href.slice(0, hashIndex),
+    fragment: href.slice(hashIndex + 1),
+  };
+}
+
+function normalizeEpubPath(value: string) {
+  const path = value.replace(/\\/g, "/").replace(/^\/+/, "");
+  const parts: string[] = [];
+
+  for (const part of path.split("/")) {
+    if (!part || part === ".") continue;
+    if (part === "..") {
+      parts.pop();
+      continue;
+    }
+    parts.push(part);
+  }
+
+  return parts.join("/");
+}
+
+function epubDirName(value: string) {
+  const normalized = normalizeEpubPath(value);
+  const slashIndex = normalized.lastIndexOf("/");
+  return slashIndex >= 0 ? normalized.slice(0, slashIndex) : "";
+}
+
+function uniqueNonEmpty(values: string[]) {
+  return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
+}
+
+function joinHrefFragment(base: string, fragment: string) {
+  return fragment ? `${base}#${fragment}` : base;
+}
+
+function tocTargetSummary(item: TocItem) {
+  return {
+    id: item.id,
+    label: item.label,
+    depth: item.depth ?? 0,
+    locator: item.locator,
+  };
+}
+
 function themeColors(theme: ReaderState["theme"]) {
   if (theme === "dark") {
     return { background: "#171916", color: "#f1f2ee", heading: "#fafbf7", link: "#8fcfbd", selection: "rgba(143, 207, 189, 0.32)" };
@@ -583,35 +647,117 @@ function targetStatusMessage(target: EpubDisplayTarget, attempt: number) {
   return attempt === 1 ? "Opening book start" : "Retrying book start";
 }
 
-async function displayLocator(rendition: any, book: any, locator: SearchResult["locator"]) {
+function progressFromEpubLocation(book: any, location: any, cfi: string) {
+  try {
+    const progress = book.locations?.percentageFromCfi(cfi);
+    if (typeof progress === "number" && Number.isFinite(progress)) {
+      return Math.max(0, Math.min(1, progress));
+    }
+  } catch {
+    // Fall through to rendition or spine index estimates while locations are still generating.
+  }
+
+  const renditionProgress = location?.start?.percentage;
+  if (typeof renditionProgress === "number" && Number.isFinite(renditionProgress)) {
+    return Math.max(0, Math.min(1, renditionProgress));
+  }
+
+  const spineItems = Array.isArray(book?.spine?.spineItems) ? book.spine.spineItems : [];
+  const spineIndex = location?.start?.index;
+  if (typeof spineIndex === "number" && Number.isFinite(spineIndex) && spineItems.length > 1) {
+    return Math.max(0, Math.min(1, spineIndex / (spineItems.length - 1)));
+  }
+
+  return 0;
+}
+
+function resolveEpubHrefDisplayTarget(book: any, href: string) {
+  const rawHref = href.trim();
+  const { base, fragment } = splitHrefFragment(rawHref);
+  const navigationPath = book?.packaging?.navPath || book?.packaging?.ncxPath || "";
+  const navigationDir = epubDirName(navigationPath);
+  const decodedBase = safeDecodeUri(base);
+  const decodedFragment = safeDecodeUriComponent(fragment);
+  const baseCandidates = uniqueNonEmpty([
+    base,
+    decodedBase,
+    normalizeEpubPath(base),
+    normalizeEpubPath(decodedBase),
+    navigationDir ? normalizeEpubPath(`${navigationDir}/${base}`) : "",
+    navigationDir ? normalizeEpubPath(`${navigationDir}/${decodedBase}`) : "",
+  ]);
+  const fragmentCandidates = [...new Set([fragment, decodedFragment])];
+  const targets = baseCandidates.flatMap((candidate) => fragmentCandidates.map((candidateFragment) => joinHrefFragment(candidate, candidateFragment)));
+
+  for (const target of targets) {
+    const targetBase = splitHrefFragment(target).base;
+    const section = book?.spine?.get?.(target) ?? book?.spine?.get?.(targetBase);
+    if (section) {
+      return {
+        target,
+        section,
+        candidates: targets,
+      };
+    }
+  }
+
+  return {
+    target: rawHref,
+    section: null,
+    candidates: targets.length > 0 ? targets : [rawHref],
+  };
+}
+
+async function displayLocator(
+  rendition: any,
+  book: any,
+  locator: SearchResult["locator"],
+  options: { element?: HTMLElement | null; source?: string } = {},
+) {
   if (locator.type === "epub-cfi") {
-    await rendition.display?.(locator.cfi);
+    devLog("navigation:display:start", { source: options.source ?? "command", locator, target: locator.cfi });
+    if (options.element) {
+      await waitForElementLayout(options.element, EPUB_LAYOUT_TIMEOUT_MS);
+      safeCall(() => resizeRenditionToElement(rendition, options.element ?? null));
+    }
+    await withTimeout(Promise.resolve(rendition.display?.(locator.cfi)), "rendition.display command", EPUB_RENDER_TIMEOUT_MS);
+    if (options.element) {
+      await waitForVisibleRenditionContent(rendition, options.element, EPUB_CONTENT_TIMEOUT_MS);
+    }
+    safeCall(() => rendition.reportLocation?.());
+    devLog("navigation:display:success", { source: options.source ?? "command", locator, currentLocation: typeof rendition.currentLocation === "function" ? rendition.currentLocation() : null });
     return;
   }
 
   if (locator.type === "epub-href") {
-    const href = locator.href;
-    const hrefWithoutHash = href.split("#")[0];
-    const section =
-      book?.spine?.get?.(href) ??
-      book?.spine?.get?.(hrefWithoutHash) ??
-      book?.spine?.get?.(decodeURIComponent(href)) ??
-      book?.spine?.get?.(decodeURIComponent(hrefWithoutHash));
+    const resolved = resolveEpubHrefDisplayTarget(book, locator.href);
+    devLog("navigation:toc-target", {
+      source: options.source ?? "command",
+      href: locator.href,
+      resolvedTarget: resolved.target,
+      candidateCount: resolved.candidates.length,
+      candidates: resolved.candidates.slice(0, 8),
+      sectionHref: resolved.section?.href,
+      sectionIndex: resolved.section?.index,
+    });
 
-    if (section?.index !== undefined) {
-      const sectionStart = section.cfiBase ? `epubcfi(${section.cfiBase}!/4/2/2/1:0)` : section.href;
-      devLog("display:href", { href, index: section.index, sectionHref: section.href, target: sectionStart });
-      if (rendition.manager?.display) {
-        await rendition.manager.display(section, sectionStart);
-        rendition.reportLocation?.();
-      } else {
-        await rendition.display?.(sectionStart);
-      }
-      return;
+    if (options.element) {
+      await waitForElementLayout(options.element, EPUB_LAYOUT_TIMEOUT_MS);
+      safeCall(() => resizeRenditionToElement(rendition, options.element ?? null));
     }
 
-    devLog("display:href", { href, fallback: true });
-    await rendition.display?.(href);
+    devLog("navigation:display:start", { source: options.source ?? "command", locator, target: resolved.target });
+    await withTimeout(Promise.resolve(rendition.display?.(resolved.target)), "rendition.display command", EPUB_RENDER_TIMEOUT_MS);
+    if (options.element) {
+      await waitForVisibleRenditionContent(rendition, options.element, EPUB_CONTENT_TIMEOUT_MS);
+    }
+    safeCall(() => rendition.reportLocation?.());
+    devLog("navigation:display:success", {
+      source: options.source ?? "command",
+      locator,
+      target: resolved.target,
+      currentLocation: typeof rendition.currentLocation === "function" ? rendition.currentLocation() : null,
+    });
   }
 }
 
@@ -839,12 +985,7 @@ export function EpubReader({
           if (!cfi || cfi === lastCfi.current) return;
           lastCfi.current = cfi;
 
-          let progress = 0;
-          try {
-            progress = book.locations?.percentageFromCfi(cfi) ?? 0;
-          } catch {
-            progress = 0;
-          }
+          const progress = progressFromEpubLocation(book, location, cfi);
 
           const displayed = location?.start?.displayed;
           const label = displayed?.page && displayed?.total ? `Location ${displayed.page} of ${displayed.total}` : `${Math.round(progress * 100)}%`;
@@ -919,7 +1060,13 @@ export function EpubReader({
           return null;
         });
         if (!cancelled && !destroyedRef.current && !failed) {
-          onTocChange(flattenToc(navigation?.toc ?? []));
+          const tocItems = flattenToc(navigation?.toc ?? []);
+          devLog("toc:loaded", {
+            count: tocItems.length,
+            rawCount: Array.isArray(navigation?.toc) ? navigation.toc.length : 0,
+            sample: tocItems.slice(0, 8).map(tocTargetSummary),
+          });
+          onTocChange(tocItems);
         }
 
         async function displayAndValidate(target: EpubDisplayTarget, attempt: number) {
@@ -1103,15 +1250,24 @@ export function EpubReader({
 
     handledCommand.current = command.id;
     devLog("command", { type: command.type, locator: command.type === "goTo" ? command.locator : undefined });
-    safeCall(() => {
-      if (command.type === "next") void rendition.next?.();
-      if (command.type === "prev") void rendition.prev?.();
-      if (command.type === "goTo" && command.locator.type !== "pdf-page") {
-        void displayLocator(rendition, bookRef.current, command.locator).catch((error: unknown) => {
-          devError("display command failed", error);
+    if (command.type === "next") {
+      void rendition.next?.();
+      return;
+    }
+    if (command.type === "prev") {
+      void rendition.prev?.();
+      return;
+    }
+    if (command.type !== "goTo") return;
+    const locator = command.locator;
+    if (locator.type !== "pdf-page") {
+      void displayLocator(rendition, bookRef.current, locator, { element: containerRef.current, source: "reader-command" }).catch((error: unknown) => {
+        devError("navigation:display:failed", error, {
+          locator,
+          diagnostics: collectRenditionDiagnostics(rendition, containerRef.current),
         });
-      }
-    });
+      });
+    }
   }, [command, ready]);
 
   useEffect(() => {
