@@ -21,6 +21,7 @@ import { loadReaderState, saveReaderState, setBookBookmarked } from "@/lib/clien
 import type { BookDTO, ReaderBookmark, ReaderLocator, ReaderState, SearchResult, TocItem } from "@/lib/types";
 import { ShareButton } from "@/components/ShareButton";
 import { ReaderErrorBoundary } from "@/components/reader/ReaderErrorBoundary";
+import { ReaderLoadingFrame } from "@/components/reader/ReaderLoadingState";
 import {
   READER_SHORTCUT_EVENT,
   type ReaderCommand,
@@ -33,12 +34,12 @@ import {
 
 const PdfReader = dynamic<ReaderEngineProps>(() => import("@/components/reader/PdfReader").then((mod) => mod.PdfReader), {
   ssr: false,
-  loading: () => <div className="loading-state">Loading PDF reader</div>,
+  loading: () => <ReaderLoadingFrame detail="Loading PDF reader." />,
 });
 
 const EpubReader = dynamic<ReaderEngineProps>(() => import("@/components/reader/EpubReader").then((mod) => mod.EpubReader), {
   ssr: false,
-  loading: () => <div className="loading-state">Loading EPUB reader</div>,
+  loading: () => <ReaderLoadingFrame detail="Loading EPUB reader." />,
 });
 
 const useClientLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
@@ -591,7 +592,7 @@ export function ReaderShell({ book }: ReaderShellProps) {
       <main className={panel ? "reader-main panel-open" : "reader-main"} id="main">
         <section className="reader-stage" aria-label={`${book.format} reader${engineStatus.phase === "ready" ? "" : `, ${engineStatus.message}`}`}>
           {!hydrated ? (
-            <div className="loading-state">Opening reader</div>
+            <ReaderLoadingFrame detail="Restoring your reading position." />
           ) : (
             <ReaderErrorBoundary downloadUrl={fileUrl} resetKey={`${book.slug}:${book.format}:${error}`}>
               <Engine

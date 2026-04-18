@@ -3,6 +3,7 @@
 import ePub from "epubjs";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ReaderFailure } from "@/components/reader/ReaderFailure";
+import { ReaderLoadingState } from "@/components/reader/ReaderLoadingState";
 import { READER_SHORTCUT_EVENT, type ReaderEngineProps, type ReaderLoadStatus, type ReaderShortcutDetail } from "@/components/reader/types";
 import type { ReaderState, SearchResult, TocItem } from "@/lib/types";
 
@@ -1188,8 +1189,8 @@ export function EpubReader({
   return (
     <div className={state.layout === "vertical" ? "reader-viewer vertical epub-reader-viewer" : "reader-viewer paginated epub-reader-viewer"}>
       {!ready ? (
-        <div className="reader-loading-cover" role="status" aria-live="polite">
-          <div className="loading-state">{loadMessage}</div>
+        <div className="reader-loading-cover">
+          <ReaderLoadingState detail={loadMessage} />
         </div>
       ) : null}
       <div

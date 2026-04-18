@@ -12,6 +12,7 @@ import {
 import type { ReaderEngineProps, ReaderSearchStatus } from "@/components/reader/types";
 import type { ReaderLocator, SearchResult, TocItem } from "@/lib/types";
 import { ReaderFailure } from "@/components/reader/ReaderFailure";
+import { ReaderLoadingFrame } from "@/components/reader/ReaderLoadingState";
 
 GlobalWorkerOptions.workerSrc = "/pdf.worker.mjs";
 
@@ -1198,7 +1199,7 @@ export function PdfReader({
   }
 
   if (!pdf) {
-    return <div className="loading-state">{loadMessage}</div>;
+    return <ReaderLoadingFrame detail={loadMessage} />;
   }
 
   return (

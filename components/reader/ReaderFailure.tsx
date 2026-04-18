@@ -5,6 +5,7 @@ type ReaderFailureProps = {
   message: string;
   retryLabel?: string;
   onRetry?: () => void;
+  downloadLabel?: string;
   downloadUrl: string;
 };
 
@@ -13,6 +14,7 @@ export function ReaderFailure({
   message,
   retryLabel = "Retry",
   onRetry,
+  downloadLabel = "Download book",
   downloadUrl,
 }: ReaderFailureProps) {
   return (
@@ -27,7 +29,7 @@ export function ReaderFailure({
             </button>
           ) : null}
           <a className="button" href={`${downloadUrl}?download=1`}>
-            Download
+            {downloadLabel}
           </a>
         </div>
       </div>
