@@ -163,6 +163,12 @@ canvas {
   color: var(--accent-ink);
 }
 
+.button-label-stable {
+  display: inline-block;
+  min-width: 4.2em;
+  text-align: center;
+}
+
 .button.subtle,
 .icon-button.subtle {
   border-color: transparent;
@@ -363,6 +369,7 @@ canvas {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(214px, 1fr));
   gap: 14px;
+  align-items: stretch;
 }
 
 .book-card {
@@ -390,10 +397,23 @@ canvas {
 .cover-frame {
   position: relative;
   display: block;
+  width: 100%;
   aspect-ratio: 2 / 3;
   min-width: 0;
   overflow: hidden;
   background: linear-gradient(135deg, #e7ece8, #f6f6f4);
+}
+
+.book-cover-image,
+.book-cover-fallback {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.book-cover-image {
+  object-fit: cover;
 }
 
 .cover-frame img,
@@ -492,6 +512,10 @@ canvas {
   -webkit-line-clamp: 2;
 }
 
+.book-card .book-authors {
+  min-height: 2.38em;
+}
+
 .book-authors .author-link {
   color: var(--ink);
   font-weight: 590;
@@ -528,6 +552,7 @@ canvas {
 .book-meta {
   display: grid;
   gap: 2px;
+  min-height: 2.1em;
   color: var(--ink-muted);
   font-size: 0.78rem;
   line-height: 1.34;
@@ -604,15 +629,15 @@ canvas {
 }
 
 .title-list-title {
-  display: -webkit-box;
+  display: block;
   min-width: 0;
   overflow: hidden;
   color: var(--ink);
   font-size: 0.98rem;
   font-weight: 650;
   line-height: 1.25;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .title-list-item:hover .title-list-title {
@@ -674,6 +699,7 @@ canvas {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(124px, 1fr));
   gap: 12px;
+  align-items: start;
 }
 
 .continue-section {
@@ -741,6 +767,10 @@ canvas {
 .details-content {
   display: grid;
   gap: 18px;
+}
+
+.details-content .button-label-stable {
+  min-width: 6.2em;
 }
 
 .details-content h1 {
@@ -1428,7 +1458,7 @@ kbd {
 
 .skeleton-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(232px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(214px, 1fr));
   gap: 16px;
 }
 

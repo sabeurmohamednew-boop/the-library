@@ -2,7 +2,7 @@
 
 import { Search } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { BOOK_CATEGORIES, BOOK_FORMATS, LIBRARY_PAGE_SIZE } from "@/lib/config";
 import { getReaderStatesForLibrary, loadBookmarkedSlugs } from "@/lib/clientStorage";
 import { authorPath, bookAuthors, buildAuthorRows } from "@/lib/authors";
@@ -25,6 +25,8 @@ type LibraryClientProps = {
   books: BookDTO[];
 };
 
+const useClientLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
+
 export function LibraryClient({ books }: LibraryClientProps) {
   const [view, setView] = useState<ViewMode>("gallery");
   const [listMode, setListMode] = useState<ListMode>("titles");
@@ -44,7 +46,7 @@ export function LibraryClient({ books }: LibraryClientProps) {
     return () => window.clearTimeout(timeout);
   }, [search]);
 
-  useEffect(() => {
+  useClientLayoutEffect(() => {
     setReaderStates(getReaderStatesForLibrary());
     setBookmarkedSlugs(loadBookmarkedSlugs());
   }, []);

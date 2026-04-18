@@ -35,7 +35,7 @@ export function ShareButton({ label = "Share", getUrl, className = "button" }: S
   return (
     <button className={className} type="button" onClick={copyLink}>
       <Share2 size={18} aria-hidden="true" />
-      {copied ? "Copied" : label}
+      <span className="button-label-stable">{copied ? "Copied" : label}</span>
     </button>
   );
 }

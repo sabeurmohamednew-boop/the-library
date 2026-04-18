@@ -15,7 +15,7 @@ import {
   Settings,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { DEFAULT_READER_PREFERENCES } from "@/lib/config";
 import { loadReaderState, saveReaderState, setBookBookmarked } from "@/lib/clientStorage";
 import type { BookDTO, ReaderBookmark, ReaderLocator, ReaderState, SearchResult, TocItem } from "@/lib/types";
@@ -39,6 +39,8 @@ const EpubReader = dynamic<ReaderEngineProps>(() => import("@/components/reader/
   ssr: false,
   loading: () => <div className="loading-state">Loading EPUB reader</div>,
 });
+
+const useClientLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
 
 type ReaderShellProps = {
   book: BookDTO;
@@ -258,7 +260,7 @@ export function ReaderShell({ book }: ReaderShellProps) {
     [updateState],
   );
 
-  useEffect(() => {
+  useClientLayoutEffect(() => {
     const saved = loadReaderState(book.slug);
     const params = new URLSearchParams(window.location.search);
 
