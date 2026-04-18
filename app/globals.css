@@ -579,128 +579,59 @@ canvas {
   display: grid;
 }
 
-.list-book-item {
+.title-list-item {
   display: grid;
-  grid-template-columns: 46px minmax(0, 1fr) minmax(138px, auto);
-  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
   align-items: center;
-  min-height: 78px;
-  padding: 8px 12px;
+  min-height: 52px;
+  padding: 8px 14px;
   border-bottom: 1px solid var(--line);
   transition:
     background 140ms ease,
+    color 140ms ease,
     box-shadow 140ms ease;
 }
 
-.list-book-item:last-child {
+.title-list-item:last-child {
   border-bottom: 0;
 }
 
-.list-book-item:hover,
-.list-book-item:focus-within {
+.title-list-item:hover,
+.title-list-item:focus-visible {
   background: #fbfbfa;
   box-shadow: inset 3px 0 0 rgb(47 111 96 / 0.34);
 }
 
-.list-book-cover {
-  position: relative;
-  display: block;
-  width: 46px;
-  aspect-ratio: 2 / 3;
-  min-width: 0;
-  overflow: hidden;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: linear-gradient(135deg, #e7ece8, #f6f6f4);
-  transition:
-    border-color 140ms ease,
-    transform 140ms ease,
-    box-shadow 140ms ease;
-}
-
-.list-book-cover:hover {
-  border-color: var(--accent);
-  box-shadow: 0 8px 18px rgb(20 24 22 / 0.1);
-  transform: translateY(-1px);
-}
-
-.list-book-cover img,
-.list-book-cover .cover-frame {
-  width: 100%;
-  height: 100%;
-  display: block;
-  object-fit: cover;
-}
-
-.list-book-cover .cover-frame {
-  aspect-ratio: auto;
-  border: 0;
-  border-radius: 0;
-}
-
-.list-book-main {
-  display: grid;
-  gap: 3px;
-  min-width: 0;
-}
-
-.list-book-title {
+.title-list-title {
   display: -webkit-box;
   min-width: 0;
   overflow: hidden;
   color: var(--ink);
-  font-size: 1.01rem;
-  font-weight: 720;
+  font-size: 0.98rem;
+  font-weight: 650;
   line-height: 1.25;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
 }
 
-.list-book-title:hover {
+.title-list-item:hover .title-list-title {
   color: var(--accent);
 }
 
-.list-book-authors {
-  display: -webkit-box;
-  overflow: hidden;
+.title-list-meta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
   color: var(--ink-muted);
-  font-size: 0.86rem;
-  line-height: 1.35;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-}
-
-.list-book-authors .author-link {
-  color: var(--ink-muted);
-  font-weight: 560;
-}
-
-.list-book-authors .author-link:hover {
-  color: var(--accent);
-}
-
-.list-book-category {
-  overflow: hidden;
-  color: var(--ink-soft);
-  font-size: 0.78rem;
-  line-height: 1.25;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.list-book-meta {
-  display: grid;
-  gap: 4px;
-  justify-items: end;
-  min-width: 138px;
-  color: var(--ink-muted);
-  font-size: 0.81rem;
+  font-size: 0.82rem;
   line-height: 1.25;
   text-align: right;
   white-space: nowrap;
 }
 
-.list-format {
+.title-list-format {
   border: 1px solid var(--line);
   border-radius: 6px;
   background: var(--surface-muted);
@@ -1804,45 +1735,19 @@ kbd {
     padding: 0 12px;
   }
 
-  .list-book-item {
-    grid-template-columns: 42px minmax(0, 1fr);
+  .title-list-item {
     gap: 10px;
-    align-items: start;
-    min-height: 74px;
-    padding: 9px 10px;
+    min-height: 48px;
+    padding: 8px 10px;
   }
 
-  .list-book-cover {
-    width: 42px;
+  .title-list-title {
+    font-size: 0.93rem;
   }
 
-  .list-book-main {
-    gap: 4px;
-  }
-
-  .list-book-title {
-    font-size: 0.96rem;
-    line-height: 1.24;
-  }
-
-  .list-book-authors {
-    font-size: 0.82rem;
-    -webkit-line-clamp: 1;
-  }
-
-  .list-book-meta {
-    grid-column: 2;
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: flex-start;
-    gap: 6px 9px;
-    min-width: 0;
-    text-align: left;
-    white-space: normal;
-  }
-
-  .list-format {
-    padding-inline: 6px;
+  .title-list-meta {
+    gap: 6px;
+    font-size: 0.76rem;
   }
 
   .details-grid {
@@ -1977,18 +1882,17 @@ kbd {
     font-size: 0.84rem;
   }
 
-  .list-book-item {
-    grid-template-columns: 38px minmax(0, 1fr);
-    gap: 9px;
+  .title-list-item {
+    gap: 8px;
     padding-inline: 9px;
   }
 
-  .list-book-cover {
-    width: 38px;
+  .title-list-meta {
+    font-size: 0.72rem;
   }
 
-  .list-book-meta {
-    font-size: 0.76rem;
+  .title-list-format {
+    padding-inline: 5px;
   }
 
   .reader-title-row .button {

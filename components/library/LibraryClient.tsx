@@ -3,12 +3,11 @@
 import { Search } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { BOOK_CATEGORIES, BOOK_FORMATS, LIBRARY_PAGE_SIZE, categoryLabel } from "@/lib/config";
+import { BOOK_CATEGORIES, BOOK_FORMATS, LIBRARY_PAGE_SIZE } from "@/lib/config";
 import { getReaderStatesForLibrary, loadBookmarkedSlugs } from "@/lib/clientStorage";
 import { authorPath, bookAuthors, buildAuthorRows } from "@/lib/authors";
-import { formatDate, normalizeSearch } from "@/lib/text";
+import { normalizeSearch } from "@/lib/text";
 import type { BookDTO, ReaderState } from "@/lib/types";
-import { AuthorLinks } from "@/components/library/AuthorLinks";
 import { BookCard } from "@/components/library/BookCard";
 import { BookCover } from "@/components/library/BookCover";
 
@@ -263,23 +262,13 @@ export function LibraryClient({ books }: LibraryClientProps) {
         ) : listMode === "titles" ? (
           <div className="library-list book-list">
             {visibleBooks.map((book) => (
-              <article key={book.slug} className="list-book-item">
-                <Link className="list-book-cover" href={`/books/${book.slug}`} aria-label={`Open details for ${book.title}`} prefetch={false}>
-                  <BookCover book={book} />
-                </Link>
-                <div className="list-book-main">
-                  <Link className="list-book-title" href={`/books/${book.slug}`} title={book.title} prefetch={false}>
-                    {book.title}
-                  </Link>
-                  <AuthorLinks author={book.author} authors={book.authors} className="list-book-authors" prefix="By " />
-                  <span className="list-book-category">{categoryLabel(book.category)}</span>
-                </div>
-                <div className="list-book-meta">
-                  <span className="list-format">{book.format}</span>
+              <Link key={book.slug} className="title-list-item" href={`/books/${book.slug}`} title={book.title} prefetch={false}>
+                <span className="title-list-title">{book.title}</span>
+                <span className="title-list-meta" aria-label={`${book.format}, ${book.pageCount.toLocaleString()} pages`}>
+                  <span className="title-list-format">{book.format}</span>
                   <span>{book.pageCount.toLocaleString()} pages</span>
-                  <span>{formatDate(book.publicationDate)}</span>
-                </div>
-              </article>
+                </span>
+              </Link>
             ))}
           </div>
         ) : (
