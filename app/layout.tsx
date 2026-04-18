@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import { RouteFreshness } from "@/components/RouteFreshness";
 import "./globals.css";
 
@@ -25,6 +26,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         </a>
         <RouteFreshness />
         {children}
+        <SpeedInsights />
       </body>
     </html>
   );
