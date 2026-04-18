@@ -245,7 +245,7 @@ canvas {
   display: flex;
   grid-column: 3;
   grid-row: 1;
-  align-self: start;
+  align-self: center;
   justify-self: end;
 }
 
