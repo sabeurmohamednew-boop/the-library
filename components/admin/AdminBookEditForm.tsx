@@ -139,8 +139,8 @@ export function AdminBookEditForm({ book, blobConfigured }: AdminBookEditFormPro
         </label>
 
         <label className="label">
-          Author
-          <input className="field" name="author" defaultValue={current.author} required />
+          Author(s)
+          <input className="field" name="author" defaultValue={current.author} placeholder="Steven Slate, Mark W Scheeren" required />
           {fieldError("author")}
         </label>
 

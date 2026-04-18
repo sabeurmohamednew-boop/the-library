@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { isAdminSession } from "@/lib/adminAuth";
-import { authorPath } from "@/lib/authors";
+import { authorPaths } from "@/lib/authors";
 import {
   bookDataFromInput,
   coverDataFromBlob,
@@ -111,8 +111,8 @@ function revalidateBookPaths(book: { id: string; slug: string; author: string },
     `/books/${book.slug}`,
     `/read/${previous.slug}`,
     `/read/${book.slug}`,
-    authorPath(previous.author),
-    authorPath(book.author),
+    ...authorPaths(previous.author),
+    ...authorPaths(book.author),
   ];
   const uniquePaths = Array.from(new Set(paths));
 
@@ -272,7 +272,7 @@ export async function DELETE(_request: Request, { params }: RouteContext) {
 
     await prisma.book.delete({ where: { id } });
     await Promise.all([deleteBlobIfPresent(existing.bookBlobPath), deleteBlobIfPresent(existing.coverBlobPath)]);
-    for (const path of ["/", "/admin", "/admin/books", `/admin/books/${existing.id}/edit`, `/books/${existing.slug}`, `/read/${existing.slug}`, authorPath(existing.author)]) {
+    for (const path of ["/", "/admin", "/admin/books", `/admin/books/${existing.id}/edit`, `/books/${existing.slug}`, `/read/${existing.slug}`, ...authorPaths(existing.author)]) {
       revalidatePath(path);
     }
 

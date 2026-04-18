@@ -3,9 +3,11 @@ import Link from "next/link";
 import { AdminDeleteButton } from "@/components/admin/AdminDeleteButton";
 import { AdminLogin } from "@/components/admin/AdminLogin";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { AuthorLinks } from "@/components/library/AuthorLinks";
 import { BookCover } from "@/components/library/BookCover";
 import { BOOK_CATEGORIES, BOOK_FORMATS, categoryLabel } from "@/lib/config";
 import { adminPasswordConfigured, isAdminSession } from "@/lib/adminAuth";
+import { normalizeAuthorsForStorage } from "@/lib/authors";
 import { serializeBook } from "@/lib/books";
 import { prisma } from "@/lib/db";
 import { safeRuntime } from "@/lib/runtime";
@@ -30,7 +32,7 @@ function single(value: string | string[] | undefined) {
 }
 
 function duplicateKey(book: { title: string; author: string }) {
-  return `${book.title.trim().toLowerCase()}::${book.author.trim().toLowerCase()}`;
+  return `${book.title.trim().toLowerCase()}::${normalizeAuthorsForStorage(book.author).toLowerCase()}`;
 }
 
 export default async function AdminBooksPage({ searchParams }: AdminBooksPageProps) {
@@ -151,7 +153,7 @@ export default async function AdminBooksPage({ searchParams }: AdminBooksPagePro
                 <Link className="book-title-link" href={`/admin/books/${book.id}/edit`} prefetch={false}>
                   {book.title}
                 </Link>
-                <span className="book-author">By {book.author}</span>
+                <AuthorLinks author={book.author} authors={book.authors} className="book-authors" prefix="By " />
                 <span className="muted small">ID {book.id}</span>
                 <span className="muted small">Slug {book.slug}</span>
                 {(duplicateCounts.get(duplicateKey(book)) ?? 0) > 1 ? <span className="muted small">Duplicate title/author</span> : null}

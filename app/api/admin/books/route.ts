@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { isAdminSession } from "@/lib/adminAuth";
-import { authorPath } from "@/lib/authors";
+import { authorPaths } from "@/lib/authors";
 import { serializeBook } from "@/lib/books";
 import { bookCreateSchema } from "@/lib/validation";
 import { bookDataFromInput, coverDataFromBlob, fileDataFromBlob, safeAdminError, uniqueSlug } from "@/lib/adminBooks";
@@ -11,7 +11,7 @@ import { blobStoreConfigured, deleteBlobIfPresent, validateBookBlob, validateCov
 export const runtime = "nodejs";
 
 function revalidateCreatePaths(book: { slug: string; author: string }) {
-  for (const path of ["/", "/admin", "/admin/books", `/books/${book.slug}`, `/read/${book.slug}`, authorPath(book.author)]) {
+  for (const path of ["/", "/admin", "/admin/books", `/books/${book.slug}`, `/read/${book.slug}`, ...authorPaths(book.author)]) {
     revalidatePath(path);
   }
 }

@@ -2,12 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BookCard } from "@/components/library/BookCard";
+import { AuthorLinks } from "@/components/library/AuthorLinks";
 import { BookBookmarkButton } from "@/components/library/BookBookmarkButton";
 import { BookCover } from "@/components/library/BookCover";
 import { RuntimeNotice } from "@/components/RuntimeNotice";
 import { ShareButton } from "@/components/ShareButton";
 import { categoryLabel } from "@/lib/config";
-import { authorPath } from "@/lib/authors";
 import { safeGetBookBySlug, safeGetRelatedBooks } from "@/lib/books";
 import { bookFileAvailable } from "@/lib/storage";
 import { formatDate, formatFileSize } from "@/lib/text";
@@ -68,11 +68,8 @@ export default async function BookPage({ params }: BookPageProps) {
           <div>
             <p className="muted small">{book.format}</p>
             <h1 id="book-title">{book.title}</h1>
-            <p className="muted">
-              By{" "}
-              <Link className="author-link inline-author-link" href={authorPath(book.author)} prefetch={false}>
-                {book.author}
-              </Link>
+            <p className="muted detail-authors">
+              <AuthorLinks author={book.author} authors={book.authors} linkClassName="inline-author-link" prefix="By " />
             </p>
           </div>
 

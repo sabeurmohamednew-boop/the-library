@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BookCard } from "@/components/library/BookCard";
 import { RuntimeNotice } from "@/components/RuntimeNotice";
+import { matchingAuthorForSlug } from "@/lib/authors";
 import { safeGetBooksByAuthorSlug } from "@/lib/books";
 
 export const dynamic = "force-dynamic";
@@ -23,7 +24,7 @@ export async function generateMetadata({ params }: AuthorPageProps): Promise<Met
   const { slug } = await params;
   const result = await safeGetBooksByAuthorSlug(decodeSlug(slug));
   const books = result.ok ? result.data : [];
-  const author = books[0]?.author;
+  const author = books.map((book) => matchingAuthorForSlug(book, decodeSlug(slug))).find(Boolean);
 
   if (!author) {
     return { title: "Author not found" };
@@ -46,7 +47,7 @@ export default async function AuthorPage({ params }: AuthorPageProps) {
   const books = result.data;
   if (books.length === 0) notFound();
 
-  const author = books[0].author;
+  const author = books.map((book) => matchingAuthorForSlug(book, decodeSlug(slug))).find(Boolean) ?? books[0].authors[0] ?? books[0].author;
 
   return (
     <main className="site-shell" id="main">

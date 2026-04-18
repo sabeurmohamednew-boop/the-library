@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useRef, useState } from "react";
 import { BOOK_CATEGORIES, BOOK_FORMATS } from "@/lib/config";
+import { normalizeAuthorsForStorage } from "@/lib/authors";
 import { markLibraryContentChanged } from "@/lib/clientFreshness";
 import { uploadAdminBlob } from "@/lib/clientUploads";
 import type { BookDTO } from "@/lib/types";
@@ -66,7 +67,7 @@ export function AdminImportForm({ blobConfigured }: AdminImportFormProps) {
     if (!bookFile?.size) nextFieldErrors.bookFile = ["A PDF or EPUB file is required."];
     if (!coverFile?.size) nextFieldErrors.coverFile = ["A cover image is required."];
     if (!title.trim()) nextFieldErrors.title = ["Title is required."];
-    if (!author.trim()) nextFieldErrors.author = ["Author is required."];
+    if (!normalizeAuthorsForStorage(author)) nextFieldErrors.author = ["Author is required."];
     if (!pageCount || Number(pageCount) < 1) nextFieldErrors.pageCount = ["Page count is required."];
     if (bookFile?.size) {
       const lower = bookFile.name.toLowerCase();
@@ -165,8 +166,8 @@ export function AdminImportForm({ blobConfigured }: AdminImportFormProps) {
         </label>
 
         <label className="label">
-          Author
-          <input className="field" name="author" value={author} onChange={(event) => setAuthor(event.target.value)} required />
+          Author(s)
+          <input className="field" name="author" value={author} onChange={(event) => setAuthor(event.target.value)} placeholder="Steven Slate, Mark W Scheeren" required />
           {fieldError("author")}
         </label>
 

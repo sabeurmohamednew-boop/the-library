@@ -14,6 +14,7 @@ export type BookDTO = {
   title: string;
   description: string;
   author: string;
+  authors: string[];
   format: BookFormat;
   category: BookCategory;
   pageCount: number;

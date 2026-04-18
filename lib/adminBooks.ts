@@ -1,6 +1,7 @@
 import "server-only";
 
 import path from "node:path";
+import { normalizeAuthorsForStorage } from "@/lib/authors";
 import { prisma } from "@/lib/db";
 import { buildBookSearchText } from "@/lib/books";
 import { runtimeFailure, logRuntimeFailure } from "@/lib/runtime";
@@ -35,15 +36,17 @@ export async function uniqueSlug(title: string, exceptId?: string) {
 }
 
 export function bookDataFromInput(input: BookImportInput) {
+  const author = normalizeAuthorsForStorage(input.author);
+
   return {
     title: input.title,
     description: input.description,
-    author: input.author,
+    author,
     format: input.format,
     category: input.category,
     pageCount: input.pageCount,
     publicationDate: input.publicationDate,
-    searchText: buildBookSearchText(input),
+    searchText: buildBookSearchText({ ...input, author }),
   };
 }
 

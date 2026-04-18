@@ -3,11 +3,12 @@
 import { Search } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { BOOK_CATEGORIES, BOOK_FORMATS, LIBRARY_PAGE_SIZE } from "@/lib/config";
+import { BOOK_CATEGORIES, BOOK_FORMATS, LIBRARY_PAGE_SIZE, categoryLabel } from "@/lib/config";
 import { getReaderStatesForLibrary, loadBookmarkedSlugs } from "@/lib/clientStorage";
-import { authorPath } from "@/lib/authors";
-import { normalizeSearch } from "@/lib/text";
+import { authorPath, bookAuthors, buildAuthorRows } from "@/lib/authors";
+import { formatDate, normalizeSearch } from "@/lib/text";
 import type { BookDTO, ReaderState } from "@/lib/types";
+import { AuthorLinks } from "@/components/library/AuthorLinks";
 import { BookCard } from "@/components/library/BookCard";
 import { BookCover } from "@/components/library/BookCover";
 
@@ -77,7 +78,8 @@ export function LibraryClient({ books }: LibraryClientProps) {
         if (bookmarkedOnly && !bookmarkedSlugs.has(book.slug)) return false;
 
         if (!query) return true;
-        const haystack = `${book.title} ${book.author} ${book.description}`.toLowerCase();
+        const authorText = bookAuthors(book).join(" ");
+        const haystack = `${book.title} ${book.author} ${authorText} ${book.description}`.toLowerCase();
         return haystack.includes(query);
       })
       .sort((a, b) => {
@@ -114,11 +116,7 @@ export function LibraryClient({ books }: LibraryClientProps) {
   const canLoadMore = visibleCount < filteredBooks.length;
 
   const authorRows = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const book of filteredBooks) {
-      map.set(book.author, (map.get(book.author) ?? 0) + 1);
-    }
-    return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b));
+    return buildAuthorRows(filteredBooks);
   }, [filteredBooks]);
 
   function resumeDetailFor(book: BookDTO) {
@@ -263,18 +261,31 @@ export function LibraryClient({ books }: LibraryClientProps) {
             ))}
           </div>
         ) : listMode === "titles" ? (
-          <div className="library-list">
+          <div className="library-list book-list">
             {visibleBooks.map((book) => (
-              <Link key={book.slug} className="list-item" href={`/books/${book.slug}`} prefetch={false}>
-                <span>{book.title}</span>
-                <span className="muted small">{book.format}</span>
-              </Link>
+              <article key={book.slug} className="list-book-item">
+                <Link className="list-book-cover" href={`/books/${book.slug}`} aria-label={`Open details for ${book.title}`} prefetch={false}>
+                  <BookCover book={book} />
+                </Link>
+                <div className="list-book-main">
+                  <Link className="list-book-title" href={`/books/${book.slug}`} title={book.title} prefetch={false}>
+                    {book.title}
+                  </Link>
+                  <AuthorLinks author={book.author} authors={book.authors} className="list-book-authors" prefix="By " />
+                  <span className="list-book-category">{categoryLabel(book.category)}</span>
+                </div>
+                <div className="list-book-meta">
+                  <span className="list-format">{book.format}</span>
+                  <span>{book.pageCount.toLocaleString()} pages</span>
+                  <span>{formatDate(book.publicationDate)}</span>
+                </div>
+              </article>
             ))}
           </div>
         ) : (
-          <div className="library-list">
-            {authorRows.slice(0, visibleCount).map(([author, count]) => (
-              <Link key={author} className="list-item" href={authorPath(author)} aria-label={`View books by ${author}`} prefetch={false}>
+          <div className="library-list author-list">
+            {authorRows.slice(0, visibleCount).map(({ author, count }) => (
+              <Link key={authorPath(author)} className="list-item author-list-item" href={authorPath(author)} aria-label={`View books by ${author}`} prefetch={false}>
                 <span>{author}</span>
                 <span className="muted small">
                   {count} {count === 1 ? "book" : "books"}
