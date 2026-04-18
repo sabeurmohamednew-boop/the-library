@@ -3437,6 +3437,353 @@ kbd {
   }
 }
 
+@media (max-width: 560px) {
+  .library-home {
+    width: min(760px, calc(100% - 22px));
+    padding-top: 12px;
+  }
+
+  .library-hero {
+    gap: 9px;
+    margin-bottom: 9px;
+  }
+
+  .library-home .site-title {
+    font-size: 1.48rem;
+    line-height: 1.05;
+  }
+
+  .library-subtitle {
+    max-width: 34ch;
+    font-size: 0.84rem;
+    line-height: 1.36;
+  }
+
+  .library-primary-search .field {
+    min-height: 42px;
+    padding-left: 38px;
+    font-size: 0.9rem;
+  }
+
+  .library-primary-search svg {
+    left: 13px;
+    width: 17px;
+    height: 17px;
+  }
+
+  .library-filterbar {
+    gap: 8px;
+    margin-bottom: 14px;
+    padding: 8px;
+    overflow: hidden;
+  }
+
+  .library-filterbar > *,
+  .library-filterbar .toolbar-filters,
+  .library-filterbar .toolbar-views,
+  .library-filterbar .segmented,
+  .library-filterbar .chip {
+    min-width: 0;
+  }
+
+  .library-filterbar .toolbar-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .library-filterbar .toolbar-filters .select:first-child,
+  .library-filterbar .toolbar-filters .chip {
+    grid-column: auto;
+  }
+
+  .library-filterbar .toolbar-filters .results-count {
+    grid-column: 1 / -1;
+    justify-self: center;
+    margin-top: -1px;
+    font-size: 0.76rem;
+    line-height: 1.1;
+  }
+
+  .toolbar.library-filterbar .select,
+  .toolbar.library-filterbar .chip,
+  .toolbar.library-filterbar .segmented {
+    min-height: 34px;
+  }
+
+  .toolbar.library-filterbar .select,
+  .toolbar.library-filterbar .chip {
+    padding: 6px 9px;
+    font-size: 0.82rem;
+  }
+
+  .library-filterbar .chip {
+    justify-content: flex-start;
+    gap: 6px;
+    overflow: hidden;
+    font-size: 0.8rem;
+    white-space: nowrap;
+  }
+
+  .library-filterbar .chip input {
+    flex: 0 0 auto;
+    width: 24px;
+    height: 15px;
+  }
+
+  .library-filterbar .chip input:checked {
+    background:
+      radial-gradient(circle at 17px 50%, var(--surface) 0 3.8px, transparent 4.4px),
+      var(--accent);
+  }
+
+  .toolbar-views .segmented-button {
+    min-height: 34px;
+    padding-inline: 4px;
+    font-size: 0.82rem;
+  }
+
+  .library-filterbar .toolbar-views .segmented {
+    display: flex;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .library-filterbar .toolbar-views .segmented-button {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .continue-section {
+    margin: 14px 0 18px;
+    padding: 10px;
+  }
+
+  .continue-section .section-heading {
+    margin-bottom: 8px;
+  }
+
+  .continue-card-grid {
+    gap: 8px;
+  }
+
+  .continue-card {
+    grid-template-columns: 72px minmax(0, 1fr);
+    gap: 10px;
+    min-height: 112px;
+    padding: 8px;
+  }
+
+  .continue-card-body {
+    gap: 4px;
+  }
+
+  .continue-kicker {
+    font-size: 0.62rem;
+  }
+
+  .continue-card h3 {
+    font-size: 0.9rem;
+    line-height: 1.18;
+  }
+
+  .continue-authors,
+  .continue-progress {
+    font-size: 0.74rem;
+  }
+
+  .continue-progress-track {
+    height: 3px;
+  }
+
+  .continue-resume {
+    justify-self: start;
+    width: auto;
+    min-height: 30px;
+    margin-top: 1px;
+    padding-inline: 12px;
+    font-size: 0.82rem;
+  }
+
+  .empty-state-feature {
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .empty-state-feature > div {
+    min-width: 0;
+  }
+
+  .empty-state-feature .button {
+    grid-column: 1 / -1;
+    min-height: 34px;
+    margin-top: 0;
+    padding-inline: 14px;
+  }
+
+  .empty-state-feature h3 {
+    font-size: 0.94rem;
+  }
+
+  .empty-state-feature p {
+    font-size: 0.82rem;
+    line-height: 1.38;
+  }
+
+  .gallery-grid {
+    gap: 14px 11px;
+  }
+
+  .book-card-body {
+    gap: 4px;
+    padding: 8px 1px 0;
+  }
+
+  .book-title-link {
+    min-height: 2.34em;
+    font-size: 0.9rem;
+    line-height: 1.2;
+  }
+
+  .book-authors,
+  .book-card .book-authors {
+    min-height: 1.18em;
+    font-size: 0.74rem;
+  }
+
+  .book-meta {
+    font-size: 0.68rem;
+  }
+
+  .card-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 5px;
+    margin-top: 4px;
+    min-width: 0;
+  }
+
+  .card-actions .button {
+    width: 100%;
+    min-width: 0;
+    min-height: 32px;
+    padding: 6px 4px;
+    border-radius: var(--radius);
+    font-size: 0.76rem;
+    line-height: 1;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .card-actions .button.primary {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: var(--accent-ink);
+    box-shadow: 0 5px 12px rgb(47 111 96 / 0.16);
+  }
+
+  .card-actions .button.secondary {
+    border-color: rgb(20 24 22 / 0.1);
+    background: rgb(255 255 255 / 0.72);
+    color: var(--ink-muted);
+  }
+
+  .browse-section {
+    margin-top: 2px;
+  }
+
+  .browse-heading {
+    gap: 6px;
+    margin-bottom: 8px;
+  }
+
+  .browse-heading p {
+    font-size: 0.76rem;
+    line-height: 1.32;
+  }
+
+  .browse-heading .segmented {
+    justify-self: start;
+    padding: 2px;
+  }
+
+  .browse-heading .segmented-button {
+    min-height: 30px;
+    padding: 5px 9px;
+    font-size: 0.8rem;
+  }
+
+  .browse-section-list .library-list {
+    margin-top: 2px;
+  }
+
+  .reader-panel {
+    inset: auto 8px calc(8px + env(safe-area-inset-bottom, 0px)) 8px;
+    max-height: min(calc(64dvh - env(safe-area-inset-bottom, 0px)), 520px);
+    padding: 12px 12px calc(12px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .reader-panel-settings {
+    max-height: min(calc(50dvh - env(safe-area-inset-bottom, 0px)), 420px);
+  }
+
+  .reader-panel::before {
+    width: 34px;
+    margin: -3px auto 9px;
+  }
+
+  .reader-panel .panel-head {
+    margin-bottom: 9px;
+  }
+
+  .reader-panel .panel-head h2 {
+    font-size: 0.94rem;
+  }
+
+  .reader-panel .field,
+  .reader-panel .select,
+  .reader-panel .chip {
+    min-height: 38px;
+  }
+
+  .settings-grid {
+    gap: 8px;
+  }
+
+  .panel-list,
+  .reader-panel .panel-list {
+    gap: 6px;
+  }
+
+  .toc-button,
+  .search-result-button,
+  .panel-list .button {
+    min-height: 38px;
+    padding-block: 7px;
+    font-size: 0.86rem;
+  }
+
+  .panel-empty-state {
+    gap: 7px;
+    padding: 12px;
+  }
+}
+
+@media (max-width: 380px) {
+  .gallery-grid {
+    gap: 13px 9px;
+  }
+
+  .card-actions {
+    gap: 4px;
+  }
+
+  .card-actions .button {
+    min-height: 31px;
+    padding-inline: 3px;
+    font-size: 0.72rem;
+  }
+}
+
 @keyframes readerSheetIn {
   from {
     opacity: 0;
