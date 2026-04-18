@@ -244,7 +244,36 @@ export function LibraryClient({ books }: LibraryClientProps) {
         </div>
       </section>
 
-      {recentBooks.length > 0 ? (
+      {!clientStateReady ? (
+        <section className="continue-section continue-section-pending" aria-labelledby="recent-heading" aria-busy="true">
+          <div className="section-heading">
+            <h2 id="recent-heading">Continue reading</h2>
+            <span className="muted small">Pick up where you left off</span>
+          </div>
+          <div className="continue-card-grid" aria-hidden="true">
+            <article className="continue-card continue-card-skeleton">
+              <span className="continue-cover cover-link skeleton" />
+              <div className="continue-card-body">
+                <span className="skeleton skeleton-line continue-kicker-skeleton" />
+                <span className="skeleton skeleton-line continue-title-skeleton" />
+                <span className="skeleton skeleton-line continue-author-skeleton" />
+                <span className="skeleton skeleton-line continue-progress-skeleton" />
+                <span className="skeleton continue-button-skeleton" />
+              </div>
+            </article>
+            <article className="continue-card continue-card-skeleton">
+              <span className="continue-cover cover-link skeleton" />
+              <div className="continue-card-body">
+                <span className="skeleton skeleton-line continue-kicker-skeleton" />
+                <span className="skeleton skeleton-line continue-title-skeleton" />
+                <span className="skeleton skeleton-line continue-author-skeleton" />
+                <span className="skeleton skeleton-line continue-progress-skeleton" />
+                <span className="skeleton continue-button-skeleton" />
+              </div>
+            </article>
+          </div>
+        </section>
+      ) : recentBooks.length > 0 ? (
         <section className="continue-section" aria-labelledby="recent-heading">
           <div className="section-heading">
             <h2 id="recent-heading">Continue reading</h2>
@@ -290,7 +319,7 @@ export function LibraryClient({ books }: LibraryClientProps) {
             })}
           </div>
         </section>
-      ) : clientStateReady ? (
+      ) : (
         <section className="continue-section continue-empty-section" aria-labelledby="recent-heading">
           <div className="section-heading">
             <h2 id="recent-heading">Continue reading</h2>
@@ -311,7 +340,7 @@ export function LibraryClient({ books }: LibraryClientProps) {
             ) : null}
           </div>
         </section>
-      ) : null}
+      )}
 
       <section className={`browse-section browse-section-${view}`} aria-labelledby="browse-heading" aria-live="polite" aria-busy={false}>
         <div className="section-heading browse-heading">
