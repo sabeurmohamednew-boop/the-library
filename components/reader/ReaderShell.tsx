@@ -111,6 +111,15 @@ function shouldIgnoreShortcutEvent(event: KeyboardEvent) {
   return event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || isEditableShortcutTarget(event.target);
 }
 
+function cfiSnapshot(value: string | null | undefined) {
+  const cfi = value?.trim() ?? "";
+  return {
+    present: Boolean(cfi),
+    length: cfi.length,
+    startsWithEpubCfi: cfi.startsWith("epubcfi("),
+  };
+}
+
 export function ReaderShell({ book }: ReaderShellProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const overlayTimer = useRef<number | null>(null);
@@ -274,14 +283,31 @@ export function ReaderShell({ book }: ReaderShellProps) {
     setEngineStatus({ phase: "idle", message: "Preparing reader" });
     const saved = loadReaderState(book.slug);
     const params = new URLSearchParams(window.location.search);
+    const storedCfi = typeof saved.epubCfi === "string" ? saved.epubCfi.trim() : "";
+    let restoreSource: "none" | "localStorage" | "url" = storedCfi ? "localStorage" : "none";
 
     if (book.format === "PDF") {
       const page = Number(params.get("page"));
       if (Number.isFinite(page) && page > 0) saved.pdfPage = page;
     } else {
-      const cfi = params.get("cfi");
-      if (cfi) saved.epubCfi = cfi;
+      const cfi = params.get("cfi")?.trim() ?? "";
+      if (cfi) {
+        saved.epubCfi = cfi;
+        restoreSource = "url";
+      } else if (storedCfi) {
+        saved.epubCfi = storedCfi;
+      }
     }
+
+    console.info("[reader-shell] restore-state", {
+      at: new Date().toISOString(),
+      slug: book.slug,
+      format: book.format,
+      restoreSource,
+      storedCfi: cfiSnapshot(storedCfi),
+      urlCfi: cfiSnapshot(params.get("cfi")),
+      restoredCfi: cfiSnapshot(saved.epubCfi),
+    });
 
     setState({
       ...createInitialState(book.slug),

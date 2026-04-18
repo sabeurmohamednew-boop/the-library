@@ -556,6 +556,32 @@ function resultExcerpt(value: string) {
   return value.replace(/\s+/g, " ").trim().slice(0, 140);
 }
 
+type EpubDisplayTarget =
+  | { mode: "restore"; value: string; label: string }
+  | { mode: "start"; value?: string; label: string };
+
+function normalizeRestoredCfi(value: string | undefined) {
+  const cfi = value?.trim() ?? "";
+  if (!cfi) return "";
+  return cfi.startsWith("epubcfi(") ? cfi : "";
+}
+
+function getBookStartTarget(book: any) {
+  const spineItems = Array.isArray(book?.spine?.spineItems) ? book.spine.spineItems : [];
+  const firstLinearItem = spineItems.find((item: any) => item?.linear !== "no");
+  const firstItem = firstLinearItem ?? spineItems[0] ?? (typeof book?.spine?.first === "function" ? book.spine.first() : null);
+  const href = typeof firstItem?.href === "string" ? firstItem.href.trim() : "";
+  return href || undefined;
+}
+
+function targetStatusMessage(target: EpubDisplayTarget, attempt: number) {
+  if (target.mode === "restore") {
+    return attempt === 1 ? "Opening saved position" : "Retrying saved position";
+  }
+
+  return attempt === 1 ? "Opening book start" : "Retrying book start";
+}
+
 async function displayLocator(rendition: any, book: any, locator: SearchResult["locator"]) {
   if (locator.type === "epub-cfi") {
     await rendition.display?.(locator.cfi);
@@ -895,10 +921,10 @@ export function EpubReader({
           onTocChange(flattenToc(navigation?.toc ?? []));
         }
 
-        async function displayAndValidate(attempt: number) {
+        async function displayAndValidate(target: EpubDisplayTarget, attempt: number) {
           reportStatus({
             phase: attempt === 1 ? "rendering" : "retrying",
-            message: attempt === 1 ? "Displaying EPUB content" : "Retrying EPUB render",
+            message: targetStatusMessage(target, attempt),
           });
           await waitForElementLayout(element, EPUB_LAYOUT_TIMEOUT_MS);
           if (cancelled || destroyedRef.current || failed) return null;
@@ -907,27 +933,73 @@ export function EpubReader({
           applyContentStyles(rendition, settingsRef.current);
           devLog("rendition.display:start", {
             attempt,
-            target: initialCfi.current || "start",
+            mode: target.mode,
+            label: target.label,
+            target: target.value ?? "spine-default",
             stage: measureElement(element),
           });
-          await withTimeout(Promise.resolve(rendition.display(initialCfi.current || undefined)), "rendition.display", EPUB_RENDER_TIMEOUT_MS);
+          const displayPromise = target.value ? rendition.display(target.value) : rendition.display();
+          await withTimeout(Promise.resolve(displayPromise), "rendition.display", EPUB_RENDER_TIMEOUT_MS);
           if (cancelled || destroyedRef.current || failed) return null;
 
-          devLog("rendition.display:end", { attempt, diagnostics: collectRenditionDiagnostics(rendition, element) });
+          devLog("rendition.display:end", { attempt, mode: target.mode, target: target.value ?? "spine-default", diagnostics: collectRenditionDiagnostics(rendition, element) });
           const diagnostics = await waitForVisibleRenditionContent(rendition, element, EPUB_CONTENT_TIMEOUT_MS);
           if (cancelled || destroyedRef.current || failed) return null;
+
+          safeCall(() => rendition.reportLocation?.());
+          const currentLocation = typeof rendition.currentLocation === "function" ? rendition.currentLocation() : null;
+          if (currentLocation) handleRelocated(currentLocation);
 
           return diagnostics;
         }
 
-        try {
-          await displayAndValidate(1);
-        } catch (firstDisplayError) {
-          if (cancelled || destroyedRef.current || failed) return;
-          devError("rendition.display:first-attempt-failed", firstDisplayError, collectRenditionDiagnostics(rendition, element));
-          reportStatus({ phase: "retrying", message: "Retrying EPUB render after layout settled" });
-          await sleep(180);
-          await displayAndValidate(2);
+        async function displayWithRetry(target: EpubDisplayTarget) {
+          try {
+            return await displayAndValidate(target, 1);
+          } catch (firstDisplayError) {
+            if (cancelled || destroyedRef.current || failed) return null;
+            devError(`rendition.display:${target.mode}:first-attempt-failed`, firstDisplayError, collectRenditionDiagnostics(rendition, element));
+            reportStatus({ phase: "retrying", message: targetStatusMessage(target, 2) });
+            await sleep(180);
+            return displayAndValidate(target, 2);
+          }
+        }
+
+        const savedCfi = initialCfi.current?.trim() ?? "";
+        const restoredCfi = normalizeRestoredCfi(savedCfi);
+        const startTarget: EpubDisplayTarget = { mode: "start", value: getBookStartTarget(book), label: "book start" };
+        const restoreTarget: EpubDisplayTarget | null = restoredCfi ? { mode: "restore", value: restoredCfi, label: "saved CFI" } : null;
+
+        devLog("restore:target", {
+          hasSavedCfi: Boolean(savedCfi),
+          savedCfiLength: savedCfi.length,
+          savedCfiLooksValid: Boolean(restoredCfi),
+          usingSavedCfi: Boolean(restoreTarget),
+          startHref: startTarget.value ?? "spine-default",
+        });
+
+        if (savedCfi && !restoredCfi) {
+          devError("restore:invalid-cfi-syntax", new Error("Saved EPUB CFI did not start with epubcfi(."), { savedCfiLength: savedCfi.length });
+        }
+
+        if (restoreTarget) {
+          try {
+            await displayWithRetry(restoreTarget);
+          } catch (restoreError) {
+            if (cancelled || destroyedRef.current || failed) return;
+            devError("restore:fallback-to-start", restoreError, {
+              savedCfiLength: restoredCfi.length,
+              startHref: startTarget.value ?? "spine-default",
+              diagnostics: collectRenditionDiagnostics(rendition, element),
+            });
+            initialCfi.current = "";
+            lastCfi.current = "";
+            reportStatus({ phase: "retrying", message: "Saved position unavailable; opening book start" });
+            await sleep(180);
+            await displayWithRetry(startTarget);
+          }
+        } else {
+          await displayWithRetry(startTarget);
         }
 
         if (cancelled || destroyedRef.current || failed) return;
