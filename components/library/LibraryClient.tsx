@@ -167,20 +167,20 @@ export function LibraryClient({ books }: LibraryClientProps) {
           </div>
           <div className="library-header-actions">
             <ThemeToggle />
-          </div>
-        </div>
 
-        <div className="library-primary-search search-wrap">
-          <Search aria-hidden="true" />
-          <input
-            ref={searchRef}
-            className="field"
-            type="search"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search title, author, or description"
-            aria-label="Search books"
-          />
+            <div className="library-primary-search search-wrap">
+              <Search aria-hidden="true" />
+              <input
+                ref={searchRef}
+                className="field"
+                type="search"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Search title, author, or description"
+                aria-label="Search books"
+              />
+            </div>
+          </div>
         </div>
       </header>
 
