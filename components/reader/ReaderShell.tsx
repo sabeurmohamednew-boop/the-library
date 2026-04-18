@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import type { ReactNode } from "react";
 import {
   Bookmark,
   BookOpen,
@@ -682,7 +683,7 @@ function ReaderPanel(props: ReaderPanelProps) {
       </div>
 
       {panel === "toc" ? <TocPanel toc={props.toc} goTo={props.goTo} /> : null}
-      {panel === "bookmarks" ? <BookmarksPanel bookmarks={props.bookmarks} goTo={props.goTo} removeBookmark={props.removeBookmark} /> : null}
+      {panel === "bookmarks" ? <BookmarksPanel bookmarks={props.bookmarks} goTo={props.goTo} removeBookmark={props.removeBookmark} addBookmark={props.addBookmark} /> : null}
       {panel === "search" ? (
         <SearchPanel
           searchInput={props.searchInput}
@@ -722,9 +723,20 @@ function panelTitle(panel: Exclude<Panel, null>) {
   }
 }
 
+function PanelEmptyState({ title, description, action }: { title: string; description: string; action?: ReactNode }) {
+  return (
+    <div className="panel-empty-state">
+      <span className="panel-empty-mark" aria-hidden="true" />
+      <h3>{title}</h3>
+      <p>{description}</p>
+      {action ? <div className="panel-empty-action">{action}</div> : null}
+    </div>
+  );
+}
+
 function TocPanel({ toc, goTo }: { toc: TocItem[]; goTo: (locator: ReaderLocator) => void }) {
   if (toc.length === 0) {
-    return <p className="muted">No table of contents is available for this book.</p>;
+    return <PanelEmptyState title="No contents available" description="This book does not include a table of contents. Use search or the page controls to move through it." />;
   }
 
   return (
@@ -742,13 +754,25 @@ function BookmarksPanel({
   bookmarks,
   goTo,
   removeBookmark,
+  addBookmark,
 }: {
   bookmarks: ReaderBookmark[];
   goTo: (locator: ReaderLocator) => void;
   removeBookmark: (id: string) => void;
+  addBookmark: () => void;
 }) {
   if (bookmarks.length === 0) {
-    return <p className="muted">No saved locations yet.</p>;
+    return (
+      <PanelEmptyState
+        title="No saved locations yet."
+        description="Bookmarks save your current place so you can jump back later."
+        action={
+          <button className="button primary" type="button" onClick={addBookmark}>
+            Bookmark current location
+          </button>
+        }
+      />
+    );
   }
 
   return (
@@ -815,10 +839,10 @@ function SearchPanel({
         />
       </label>
 
-      {inputQuery.length < 2 ? <p className="muted">Enter at least two characters.</p> : null}
-      {waitingForPause ? <p className="muted">Pause typing or press Enter to search.</p> : null}
+      {inputQuery.length < 2 ? <PanelEmptyState title="Search inside this book." description="Enter at least two characters to find words or phrases in the current book." /> : null}
+      {waitingForPause ? <div className="panel-status-card">Pause typing or press Enter to search.</div> : null}
       {searching ? (
-        <p className="muted search-status">
+        <p className="panel-status-card search-status">
           Searching
           {searchStatus.totalPages ? ` page ${searchStatus.searchedPages ?? 0} of ${searchStatus.totalPages}` : ""}
           {typeof searchStatus.resultCount === "number" ? ` / ${searchStatus.resultCount} result${searchStatus.resultCount === 1 ? "" : "s"}` : ""}
@@ -845,7 +869,7 @@ function SearchPanel({
           {searchStatus.truncated ? `Showing first ${activeResults.length} matches.` : `${activeResults.length} match${activeResults.length === 1 ? "" : "es"} found.`}
         </p>
       ) : null}
-      {complete && activeResults.length === 0 ? <p className="muted">No matches found.</p> : null}
+      {complete && activeResults.length === 0 ? <PanelEmptyState title="No matches found." description="Try a shorter phrase, a different spelling, or a broader word." /> : null}
     </div>
   );
 }

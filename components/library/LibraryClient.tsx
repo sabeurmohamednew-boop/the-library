@@ -8,6 +8,7 @@ import { getReaderStatesForLibrary, loadBookmarkedSlugs } from "@/lib/clientStor
 import { authorPath, bookAuthors, buildAuthorRows } from "@/lib/authors";
 import { normalizeSearch } from "@/lib/text";
 import type { BookDTO, ReaderState } from "@/lib/types";
+import { AuthorLinks } from "@/components/library/AuthorLinks";
 import { BookCard } from "@/components/library/BookCard";
 import { BookCover } from "@/components/library/BookCover";
 
@@ -39,6 +40,7 @@ export function LibraryClient({ books }: LibraryClientProps) {
   const [visibleCount, setVisibleCount] = useState<number>(LIBRARY_PAGE_SIZE.gallery);
   const [readerStates, setReaderStates] = useState<Map<string, ReaderState>>(new Map());
   const [bookmarkedSlugs, setBookmarkedSlugs] = useState<Set<string>>(new Set());
+  const [clientStateReady, setClientStateReady] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -49,6 +51,7 @@ export function LibraryClient({ books }: LibraryClientProps) {
   useClientLayoutEffect(() => {
     setReaderStates(getReaderStatesForLibrary());
     setBookmarkedSlugs(loadBookmarkedSlugs());
+    setClientStateReady(true);
   }, []);
 
   useEffect(() => {
@@ -115,10 +118,28 @@ export function LibraryClient({ books }: LibraryClientProps) {
 
   const visibleBooks = filteredBooks.slice(0, visibleCount);
   const canLoadMore = visibleCount < filteredBooks.length;
+  const hasActiveFilters = Boolean(debouncedSearch.trim() || format || category || bookmarkedOnly);
+  const hasAnyBookBookmarks = bookmarkedSlugs.size > 0;
+  const noBookmarkedBooks = bookmarkedOnly && !hasAnyBookBookmarks;
 
   const authorRows = useMemo(() => {
     return buildAuthorRows(filteredBooks);
   }, [filteredBooks]);
+
+  const browseCopy = {
+    gallery: {
+      title: "Browse library",
+      description: "Book cards with context, metadata, and quick actions.",
+    },
+    list: {
+      title: listMode === "authors" ? "Authors" : "Titles",
+      description: listMode === "authors" ? "Scan authors and jump into their books." : "A compact view for comparing books quickly.",
+    },
+    cover: {
+      title: "Cover shelf",
+      description: "A denser visual shelf for browsing by cover.",
+    },
+  }[view];
 
   function resumeDetailFor(book: BookDTO) {
     const state = readerStates.get(book.slug);
@@ -127,14 +148,23 @@ export function LibraryClient({ books }: LibraryClientProps) {
     return `${Math.round((state.progress ?? 0) * 100)}%`;
   }
 
-  return (
-    <main className="site-shell" id="main">
-      <div className="page-topline">
-        <h1 className="site-title">The Library</h1>
-      </div>
+  function resetSearchAndFilters() {
+    setSearch("");
+    setDebouncedSearch("");
+    setFormat("");
+    setCategory("");
+    setBookmarkedOnly(false);
+  }
 
-      <section className="toolbar" aria-label="Library controls">
-        <div className="toolbar-search search-wrap">
+  return (
+    <main className="site-shell library-home" id="main">
+      <header className="library-hero">
+        <div className="library-heading">
+          <h1 className="site-title">The Library</h1>
+          <p className="library-subtitle">Find a book, save your place, and return when the page calls you back.</p>
+        </div>
+
+        <div className="library-primary-search search-wrap">
           <Search aria-hidden="true" />
           <input
             ref={searchRef}
@@ -146,7 +176,9 @@ export function LibraryClient({ books }: LibraryClientProps) {
             aria-label="Search books"
           />
         </div>
+      </header>
 
+      <section className="toolbar library-filterbar" aria-label="Library controls">
         <div className="toolbar-filters">
           <select className="select" value={sort} onChange={(event) => setSort(event.target.value as SortMode)} aria-label="Sort books">
             <option value="title-asc">Title A-Z</option>
@@ -209,23 +241,72 @@ export function LibraryClient({ books }: LibraryClientProps) {
         <section className="continue-section" aria-labelledby="recent-heading">
           <div className="section-heading">
             <h2 id="recent-heading">Continue reading</h2>
+            <span className="muted small">Pick up where you left off</span>
           </div>
-          <div className="cover-grid continue-grid">
-            {recentBooks.map((book) => (
-              <Link key={book.slug} className="cover-link" href={`/read/${book.slug}`} aria-label={`Resume ${book.title}`} prefetch={false}>
-                <span className="resume-badge">Resume</span>
-                <BookCover book={book} />
-                <span className="resume-detail">{resumeDetailFor(book)}</span>
-              </Link>
-            ))}
+          <div className="continue-card-grid">
+            {recentBooks.map((book) => {
+              const state = readerStates.get(book.slug);
+              const progress = Math.max(0, Math.min(1, state?.progress ?? 0));
+              const resumeDetail = resumeDetailFor(book);
+
+              return (
+                <article key={book.slug} className="continue-card">
+                  <Link className="continue-cover cover-link" href={`/read/${book.slug}`} aria-label={`Resume ${book.title}`} prefetch={false}>
+                    <BookCover book={book} />
+                  </Link>
+                  <div className="continue-card-body">
+                    <p className="continue-kicker">{book.format}</p>
+                    <h3>
+                      <Link href={`/books/${book.slug}`} prefetch={false}>
+                        {book.title}
+                      </Link>
+                    </h3>
+                    <AuthorLinks author={book.author} authors={book.authors} className="continue-authors" prefix="By " />
+                    <div className="continue-progress" aria-label={resumeDetail ? `Saved position ${resumeDetail}` : "Saved reading position"}>
+                      <span>{resumeDetail || "Saved position"}</span>
+                      <span className="continue-progress-track" aria-hidden="true">
+                        <span className="continue-progress-fill" style={{ width: `${Math.round(progress * 100)}%` }} />
+                      </span>
+                    </div>
+                    <Link className="button primary continue-resume" href={`/read/${book.slug}`} prefetch={false}>
+                      Resume
+                    </Link>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </section>
+      ) : clientStateReady ? (
+        <section className="continue-section continue-empty-section" aria-labelledby="recent-heading">
+          <div className="section-heading">
+            <h2 id="recent-heading">Continue reading</h2>
+            <span className="muted small">Your next read will appear here</span>
+          </div>
+          <div className="empty-state empty-state-feature">
+            <span className="empty-state-mark" aria-hidden="true">
+              Read
+            </span>
+            <div>
+              <h3>{books.length === 0 ? "Add a book to begin." : "Start a book to save your place."}</h3>
+              <p>{books.length === 0 ? "Books you add will appear below for browsing, reading, and returning later." : "Open any book and The Library will remember where you left off."}</p>
+            </div>
+            {books.length > 0 ? (
+              <a className="button primary" href="#browse-heading">
+                Browse books
+              </a>
+            ) : null}
           </div>
         </section>
       ) : null}
 
-      <section aria-live="polite" aria-busy={false}>
-        {view === "list" ? (
-          <div className="section-heading">
-            <h2>List</h2>
+      <section className={`browse-section browse-section-${view}`} aria-labelledby="browse-heading" aria-live="polite" aria-busy={false}>
+        <div className="section-heading browse-heading">
+          <div>
+            <h2 id="browse-heading">{browseCopy.title}</h2>
+            <p className="muted small">{browseCopy.description}</p>
+          </div>
+          {view === "list" ? (
             <div className="segmented" role="group" aria-label="Choose list mode">
               <button
                 type="button"
@@ -242,11 +323,28 @@ export function LibraryClient({ books }: LibraryClientProps) {
                 Authors
               </button>
             </div>
-          </div>
-        ) : null}
+          ) : null}
+        </div>
 
         {filteredBooks.length === 0 ? (
-          <div className="empty-state">No books match the current search and filters.</div>
+          <div className="empty-state empty-state-card library-empty-state">
+            <span className="empty-state-mark" aria-hidden="true">
+              {books.length === 0 ? "Books" : noBookmarkedBooks ? "Save" : "Search"}
+            </span>
+            <h3>{books.length === 0 ? "Your library is ready for books." : noBookmarkedBooks ? "No bookmarked books yet." : "No books match this view."}</h3>
+            <p>
+              {books.length === 0
+                ? "Once books are added, they will appear here for browsing and reading."
+                : noBookmarkedBooks
+                  ? "Bookmark a book from its detail page or save a reader location to keep it close."
+                  : "Try a broader search, choose fewer filters, or return to the full library."}
+            </p>
+            {hasActiveFilters ? (
+              <button className="button primary" type="button" onClick={resetSearchAndFilters}>
+                Reset search and filters
+              </button>
+            ) : null}
+          </div>
         ) : view === "gallery" ? (
           <div className="gallery-grid">
             {visibleBooks.map((book) => (

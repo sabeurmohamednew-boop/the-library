@@ -133,6 +133,16 @@ export default async function BookPage({ params }: BookPageProps) {
             ))}
           </div>
         </section>
+      ) : relatedResult.ok ? (
+        <section className="related-empty-section" aria-labelledby="related-heading">
+          <div className="section-heading">
+            <h2 id="related-heading">Related books</h2>
+          </div>
+          <div className="empty-state empty-state-quiet">
+            <h3>No related books yet.</h3>
+            <p>More matches will appear here as the library grows around this category and author.</p>
+          </div>
+        </section>
       ) : null}
     </main>
   );

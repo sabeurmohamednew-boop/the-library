@@ -73,6 +73,13 @@ export default async function AuthorPage({ params }: AuthorPageProps) {
             <BookCard key={book.slug} book={book} />
           ))}
         </div>
+
+        {books.length === 1 ? (
+          <div className="empty-state empty-state-quiet author-sparse-note">
+            <h3>A small shelf for now.</h3>
+            <p>Additional books by {author} will collect here automatically when they are added to the library.</p>
+          </div>
+        ) : null}
       </section>
     </main>
   );
