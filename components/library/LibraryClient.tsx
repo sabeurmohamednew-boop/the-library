@@ -159,13 +159,15 @@ export function LibraryClient({ books }: LibraryClientProps) {
 
   return (
     <main className="site-shell library-home" id="main">
-      <header className="library-hero">
-        <div className="library-heading">
-          <div className="library-title-row">
+      <header className="library-header">
+        <div className="library-header-main">
+          <div className="library-header-copy">
             <h1 className="site-title">The Library</h1>
+            <p className="library-subtitle">Find a book, save your place, and return when the page calls you back.</p>
+          </div>
+          <div className="library-header-actions">
             <ThemeToggle />
           </div>
-          <p className="library-subtitle">Find a book, save your place, and return when the page calls you back.</p>
         </div>
 
         <div className="library-primary-search search-wrap">

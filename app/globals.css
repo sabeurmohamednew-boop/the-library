@@ -228,34 +228,32 @@ canvas {
   padding-top: 28px;
 }
 
-.library-hero {
+.library-header {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 14px clamp(24px, 5vw, 72px);
-  align-items: start;
+  gap: 14px;
   margin-bottom: 12px;
 }
 
-.library-heading {
+.library-header-main {
   display: grid;
-  grid-column: 1;
-  grid-row: 1;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: clamp(24px, 5vw, 72px);
+  align-items: start;
+}
+
+.library-header-copy {
+  display: grid;
   gap: 7px;
   min-width: 0;
 }
 
-.library-theme-slot {
+.library-header-actions {
   display: flex;
-  grid-column: 2;
-  grid-row: 1;
-  align-self: start;
-  justify-self: end;
-  margin-top: 8px;
+  justify-content: flex-end;
+  padding-top: 8px;
 }
 
 .library-primary-search {
-  grid-column: 1 / -1;
-  grid-row: 2;
   justify-self: end;
   width: min(860px, 100%);
 }
@@ -3435,24 +3433,36 @@ kbd {
     padding-top: 20px;
   }
 
-  .library-hero {
-    grid-template-columns: minmax(0, 1fr) auto;
+  .library-header {
     gap: 16px;
     margin-bottom: 12px;
   }
 
-  .library-heading {
-    min-width: 0;
+  .library-header-main {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 5px 14px;
+    align-items: center;
   }
 
-  .library-theme-slot {
-    grid-column: 2;
+  .library-header-copy {
+    display: contents;
+  }
+
+  .library-header-copy .site-title {
+    grid-column: 1;
     grid-row: 1;
   }
 
-  .library-primary-search {
+  .library-header-copy .library-subtitle {
     grid-column: 1 / -1;
     grid-row: 2;
+  }
+
+  .library-header-actions {
+    grid-column: 2;
+    grid-row: 1;
+    align-self: center;
+    padding-top: 0;
   }
 
   .library-home .site-title {
@@ -3519,7 +3529,7 @@ kbd {
     padding-top: 20px;
   }
 
-  .library-hero {
+  .library-header {
     gap: 14px;
   }
 
@@ -3601,7 +3611,7 @@ kbd {
     padding-top: 12px;
   }
 
-  .library-hero {
+  .library-header {
     gap: 9px;
     margin-bottom: 9px;
   }
@@ -4184,7 +4194,7 @@ kbd {
       var(--bg);
   }
 
-  html[data-theme="dark"] .library-hero {
+  html[data-theme="dark"] .library-header {
     gap: 10px;
   }
 
