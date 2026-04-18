@@ -3,6 +3,7 @@ import { categoryLabel, TRUNCATION_LIMITS } from "@/lib/config";
 import { formatDate, truncateText } from "@/lib/text";
 import type { BookDTO } from "@/lib/types";
 import { AuthorLinks } from "@/components/library/AuthorLinks";
+import { BookActionLinks } from "@/components/library/BookActionLinks";
 import { BookCover } from "@/components/library/BookCover";
 
 type BookCardProps = {
@@ -42,12 +43,7 @@ export function BookCard({ book, started }: BookCardProps) {
           <span>{categoryLabel(book.category)}</span>
         </div>
         <div className="card-actions">
-          <Link className="button primary" href={`/read/${book.slug}`} prefetch={false}>
-            Read
-          </Link>
-          <a className="button secondary" href={`/api/books/${book.slug}/file?download=1`}>
-            Download
-          </a>
+          <BookActionLinks book={book} />
         </div>
       </div>
     </article>

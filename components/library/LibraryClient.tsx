@@ -3,6 +3,7 @@
 import { Search } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { trackResumeClick } from "@/lib/analytics";
 import { BOOK_CATEGORIES, BOOK_FORMATS, LIBRARY_PAGE_SIZE } from "@/lib/config";
 import { getReaderStatesForLibrary, loadBookmarkedSlugs } from "@/lib/clientStorage";
 import { authorPath, bookAuthors, buildAuthorRows } from "@/lib/authors";
@@ -257,7 +258,13 @@ export function LibraryClient({ books }: LibraryClientProps) {
 
               return (
                 <article key={book.slug} className="continue-card">
-                  <Link className="continue-cover cover-link" href={`/read/${book.slug}`} aria-label={`Resume ${book.title}`} prefetch={false}>
+                  <Link
+                    className="continue-cover cover-link"
+                    href={`/read/${book.slug}`}
+                    aria-label={`Resume ${book.title}`}
+                    prefetch={false}
+                    onClick={() => trackResumeClick(book, progress)}
+                  >
                     <BookCover book={book} />
                   </Link>
                   <div className="continue-card-body">
@@ -274,7 +281,7 @@ export function LibraryClient({ books }: LibraryClientProps) {
                         <span className="continue-progress-fill" style={{ width: `${Math.round(progress * 100)}%` }} />
                       </span>
                     </div>
-                    <Link className="button primary continue-resume" href={`/read/${book.slug}`} prefetch={false}>
+                    <Link className="button primary continue-resume" href={`/read/${book.slug}`} prefetch={false} onClick={() => trackResumeClick(book, progress)}>
                       Resume
                     </Link>
                   </div>

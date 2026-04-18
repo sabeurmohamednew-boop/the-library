@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { BookActionLinks } from "@/components/library/BookActionLinks";
 import { BookCard } from "@/components/library/BookCard";
 import { AuthorLinks } from "@/components/library/AuthorLinks";
 import { BookBookmarkButton } from "@/components/library/BookBookmarkButton";
@@ -83,12 +84,7 @@ export default async function BookPage({ params }: BookPageProps) {
           ) : null}
 
           <div className="action-row">
-            <Link className="button primary" href={`/read/${book.slug}`} prefetch={false}>
-              Read
-            </Link>
-            <a className="button" href={`/api/books/${book.slug}/file?download=1`}>
-              Download
-            </a>
+            <BookActionLinks book={book} downloadClassName="button" />
             <BookBookmarkButton slug={book.slug} />
             <ShareButton />
           </div>

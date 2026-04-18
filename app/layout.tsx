@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import { PostHogProvider } from "@/components/PostHogProvider";
 import { RouteFreshness } from "@/components/RouteFreshness";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import "./globals.css";
@@ -32,7 +33,7 @@ const themeInitScript = `
     const stored = window.localStorage.getItem("theme");
     const theme = stored === "light" || stored === "dark"
       ? stored
-      : window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      : "light";
     document.documentElement.dataset.theme = theme;
     document.documentElement.style.colorScheme = theme;
   } catch {
@@ -50,13 +51,15 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       </head>
       <body className={inter.variable}>
         <ThemeProvider>
-          <a className="skip-link" href="#main">
-            Skip to content
-          </a>
-          <RouteFreshness />
-          {children}
-          <Analytics />
-          <SpeedInsights />
+          <PostHogProvider>
+            <a className="skip-link" href="#main">
+              Skip to content
+            </a>
+            <RouteFreshness />
+            {children}
+            <Analytics />
+            <SpeedInsights />
+          </PostHogProvider>
         </ThemeProvider>
       </body>
     </html>

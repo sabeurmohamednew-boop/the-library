@@ -17,6 +17,7 @@ import {
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { trackReaderOpened } from "@/lib/analytics";
 import { DEFAULT_READER_PREFERENCES } from "@/lib/config";
 import { loadReaderState, saveReaderState, setBookBookmarked } from "@/lib/clientStorage";
 import { getClientTheme, readerThemeForGlobalTheme } from "@/lib/theme";
@@ -129,6 +130,7 @@ export function ReaderShell({ book }: ReaderShellProps) {
   const overlayTimer = useRef<number | null>(null);
   const wheelZoomFrame = useRef<number | null>(null);
   const pendingWheelZoom = useRef<number | null>(null);
+  const readerOpenedTrackedRef = useRef(false);
   const [hydrated, setHydrated] = useState(false);
   const [state, setState] = useState<ReaderState>(() => createInitialState(book.slug));
   const stateRef = useRef<ReaderState>(state);
@@ -151,9 +153,13 @@ export function ReaderShell({ book }: ReaderShellProps) {
   const handleLoadStatus = useCallback(
     (status: ReaderLoadStatus) => {
       setEngineStatus((current) => (current.phase === status.phase && current.message === status.message ? current : status));
+      if (status.phase === "ready" && !readerOpenedTrackedRef.current) {
+        readerOpenedTrackedRef.current = true;
+        trackReaderOpened(book);
+      }
       console.info("[reader-shell] load-status", { at: new Date().toISOString(), slug: book.slug, format: book.format, ...status });
     },
-    [book.format, book.slug],
+    [book],
   );
 
   const updateState = useCallback((patch: Partial<ReaderState>) => {
@@ -284,6 +290,7 @@ export function ReaderShell({ book }: ReaderShellProps) {
   );
 
   useClientLayoutEffect(() => {
+    readerOpenedTrackedRef.current = false;
     setEngineStatus({ phase: "idle", message: "Preparing reader" });
     const globalReaderTheme = readerThemeForGlobalTheme(getClientTheme());
     const defaultState = createInitialState(book.slug, globalReaderTheme);

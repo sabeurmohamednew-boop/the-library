@@ -8,21 +8,20 @@ export function isGlobalTheme(value: unknown): value is GlobalTheme {
   return value === "light" || value === "dark";
 }
 
-export function getSystemTheme(): GlobalTheme {
-  if (typeof window === "undefined") return "light";
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-}
-
 export function getClientTheme(): GlobalTheme {
   if (typeof window === "undefined") return "light";
 
-  const storedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
-  if (isGlobalTheme(storedTheme)) return storedTheme;
+  try {
+    const storedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
+    if (isGlobalTheme(storedTheme)) return storedTheme;
+  } catch {
+    // Fall through to the document/default theme if localStorage is unavailable.
+  }
 
   const htmlTheme = document.documentElement.dataset.theme;
   if (isGlobalTheme(htmlTheme)) return htmlTheme;
 
-  return getSystemTheme();
+  return "light";
 }
 
 export function applyGlobalTheme(theme: GlobalTheme) {

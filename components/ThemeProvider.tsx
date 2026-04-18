@@ -11,20 +11,32 @@ type ThemeContextValue = {
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
+function persistTheme(theme: GlobalTheme) {
+  try {
+    window.localStorage.setItem(THEME_STORAGE_KEY, theme);
+  } catch {
+    // The theme still applies for the current page if storage is unavailable.
+  }
+}
+
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<GlobalTheme>(() => getClientTheme());
 
   const setTheme = useCallback((nextTheme: GlobalTheme) => {
     setThemeState(nextTheme);
+    persistTheme(nextTheme);
   }, []);
 
   const toggleTheme = useCallback(() => {
-    setThemeState((current) => (current === "dark" ? "light" : "dark"));
+    setThemeState((current) => {
+      const nextTheme = current === "dark" ? "light" : "dark";
+      persistTheme(nextTheme);
+      return nextTheme;
+    });
   }, []);
 
   useEffect(() => {
     applyGlobalTheme(theme);
-    window.localStorage.setItem(THEME_STORAGE_KEY, theme);
   }, [theme]);
 
   useEffect(() => {
