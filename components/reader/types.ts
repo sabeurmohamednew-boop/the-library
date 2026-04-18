@@ -23,6 +23,11 @@ export type ReaderSearchStatus = {
   truncated?: boolean;
 };
 
+export type ReaderLoadStatus = {
+  phase: "idle" | "fetching" | "parsing" | "rendering" | "ready" | "error";
+  message: string;
+};
+
 export type ReaderEngineProps = {
   book: BookDTO;
   fileUrl: string;
@@ -34,4 +39,5 @@ export type ReaderEngineProps = {
   onSearchStatus: (status: ReaderSearchStatus) => void;
   onLocationChange: (update: { locator: ReaderLocator; progress: number; label: string }) => void;
   onError: (message: string) => void;
+  onLoadStatus: (status: ReaderLoadStatus) => void;
 };

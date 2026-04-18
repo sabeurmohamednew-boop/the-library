@@ -5,6 +5,7 @@ import { logRuntimeFailure, runtimeFailure } from "@/lib/runtime";
 import { sanitizeFileStem } from "@/lib/storage";
 
 export const runtime = "nodejs";
+const BOOK_FILE_FETCH_TIMEOUT_MS = 30000;
 
 type RouteContext = {
   params: Promise<{ slug: string }>;
@@ -51,12 +52,15 @@ async function handleFileRequest(request: Request, context: RouteContext, headOn
     const headers = new Headers();
     const range = request.headers.get("range");
     if (range) headers.set("range", range);
+    const abortController = new AbortController();
+    const timeout = setTimeout(() => abortController.abort(), BOOK_FILE_FETCH_TIMEOUT_MS);
 
     const blobResponse = await fetch(book.bookBlobUrl, {
       method: headOnly ? "HEAD" : "GET",
       headers,
       cache: "no-store",
-    });
+      signal: abortController.signal,
+    }).finally(() => clearTimeout(timeout));
 
     if (!blobResponse.ok && blobResponse.status !== 206 && blobResponse.status !== 416) {
       devLog("blob-fetch-failed", { slug: decodedSlug, status: blobResponse.status, range });
@@ -92,12 +96,14 @@ async function handleFileRequest(request: Request, context: RouteContext, headOn
       headers: responseHeaders,
     });
   } catch (error) {
+    const aborted = typeof error === "object" && error !== null && "name" in error && (error as { name?: unknown }).name === "AbortError";
     devLog("blob-error", {
       slug: decodedSlug,
       message: error instanceof Error ? error.message : String(error),
       blobPath: book.bookBlobPath,
+      aborted,
     });
-    return NextResponse.json({ error: "Book file is unavailable." }, { status: 404 });
+    return NextResponse.json({ error: aborted ? "Book file request timed out." : "Book file is unavailable." }, { status: aborted ? 504 : 404 });
   }
 }
 

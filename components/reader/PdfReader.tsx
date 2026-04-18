@@ -20,6 +20,7 @@ const PDF_SEARCH_BATCH_SIZE = 4;
 const PDF_SEARCH_RESULT_LIMIT = 120;
 const PDF_VERTICAL_PAGE_WINDOW_BEFORE = 3;
 const PDF_VERTICAL_PAGE_WINDOW_AFTER = 5;
+const PDF_LOAD_TIMEOUT_MS = 30000;
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
@@ -42,6 +43,25 @@ function normalizeTocText(value: string) {
 function yieldToBrowser() {
   return new Promise<void>((resolve) => {
     window.setTimeout(resolve, 0);
+  });
+}
+
+function withTimeout<T>(promise: Promise<T>, label: string, timeoutMs = 30000) {
+  return new Promise<T>((resolve, reject) => {
+    const timer = window.setTimeout(() => {
+      reject(new Error(`${label} timed out.`));
+    }, timeoutMs);
+
+    promise.then(
+      (value) => {
+        window.clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        window.clearTimeout(timer);
+        reject(error);
+      },
+    );
   });
 }
 
@@ -686,6 +706,7 @@ export function PdfReader({
   onSearchStatus,
   onLocationChange,
   onError,
+  onLoadStatus,
 }: ReaderEngineProps) {
   const [containerRef, containerWidth] = useElementWidth<HTMLDivElement>();
   const [pdf, setPdf] = useState<PDFDocumentProxy | null>(null);
@@ -696,6 +717,7 @@ export function PdfReader({
   const [renderZoom, setRenderZoom] = useState(state.zoom);
   const [outlineTargets, setOutlineTargets] = useState<OutlineTarget[]>([]);
   const [loadError, setLoadError] = useState("");
+  const [loadMessage, setLoadMessage] = useState("Loading PDF");
   const [retryKey, setRetryKey] = useState(0);
   const handledCommand = useRef(0);
   const initialPage = useRef(state.pdfPage ?? 1);
@@ -703,6 +725,7 @@ export function PdfReader({
   const pdfRef = useRef<PDFDocumentProxy | null>(null);
   const numPagesRef = useRef(0);
   const currentPageRef = useRef(state.pdfPage ?? 1);
+  const statePdfPageRef = useRef(state.pdfPage ?? 1);
   const layoutRef = useRef(state.layout);
   const explicitNavigationPageRef = useRef<number | null>(null);
   const restoreVisibilityLockRef = useRef(false);
@@ -720,6 +743,7 @@ export function PdfReader({
   const onSearchStatusRef = useRef(onSearchStatus);
   const onLocationChangeRef = useRef(onLocationChange);
   const onErrorRef = useRef(onError);
+  const onLoadStatusRef = useRef(onLoadStatus);
 
   useEffect(() => {
     onTocChangeRef.current = onTocChange;
@@ -742,6 +766,10 @@ export function PdfReader({
   }, [onError]);
 
   useEffect(() => {
+    onLoadStatusRef.current = onLoadStatus;
+  }, [onLoadStatus]);
+
+  useEffect(() => {
     pdfRef.current = pdf;
   }, [pdf]);
 
@@ -752,6 +780,10 @@ export function PdfReader({
   useEffect(() => {
     currentPageRef.current = currentPage;
   }, [currentPage]);
+
+  useEffect(() => {
+    statePdfPageRef.current = state.pdfPage ?? 1;
+  }, [state.pdfPage]);
 
   useEffect(() => {
     layoutRef.current = state.layout;
@@ -831,6 +863,12 @@ export function PdfReader({
 
   const handlePageError = useCallback((message: string) => {
     setLoadError((current) => (current === message ? current : message));
+    onErrorRef.current(message);
+    onLoadStatusRef.current({ phase: "error", message });
+    const currentPdf = pdfRef.current;
+    if (currentPdf) {
+      void currentPdf.destroy().catch(() => undefined);
+    }
   }, []);
 
   const publishSearchResults = useCallback((runId: number, results: SearchResult[]) => {
@@ -852,9 +890,12 @@ export function PdfReader({
   useEffect(() => {
     let cancelled = false;
     setLoadError((current) => (current === "" ? current : ""));
+    setLoadMessage("Loading PDF");
     setPdf((current) => (current === null ? current : null));
     setNumPages((current) => (current === 0 ? current : 0));
     setOutlineTargets((current) => (current.length === 0 ? current : []));
+    initialPage.current = statePdfPageRef.current;
+    pendingScrollPage.current = statePdfPageRef.current;
     lastNotifiedLocationRef.current = "";
     lastPublishedSearchRef.current = "";
     lastPublishedSearchStatusRef.current = "";
@@ -862,6 +903,7 @@ export function PdfReader({
     textCacheRef.current.clear();
     textPromiseCacheRef.current.clear();
     onErrorRef.current("");
+    onLoadStatusRef.current({ phase: "fetching", message: "Fetching PDF file" });
     onSearchResultsRef.current([]);
     onSearchStatusRef.current({ state: "idle", query: "" });
     onTocChangeRef.current([]);
@@ -878,11 +920,20 @@ export function PdfReader({
         if (process.env.NODE_ENV !== "production") {
           console.info("[pdf-reader] loading", fileUrl);
         }
-        const loadedPdf = await loadingTask.promise;
+        setLoadMessage("Fetching PDF file");
+        const loadedPdf = await withTimeout(loadingTask.promise, "PDF load", PDF_LOAD_TIMEOUT_MS);
         if (cancelled) return;
+
+        setLoadMessage("Parsing PDF");
+        onLoadStatusRef.current({ phase: "parsing", message: "Parsing PDF" });
+        if (loadedPdf.numPages <= 0) {
+          throw new Error("PDF loaded without any pages.");
+        }
 
         setPdf(loadedPdf);
         setNumPages((current) => (current === loadedPdf.numPages ? current : loadedPdf.numPages));
+        setLoadMessage("Preparing PDF pages");
+        onLoadStatusRef.current({ phase: "rendering", message: "Preparing PDF pages" });
         const firstPage = await loadedPdf.getPage(1);
         const viewport = firstPage.getViewport({ scale: 1 });
         const nextPageWidth = Math.round(viewport.width);
@@ -910,11 +961,15 @@ export function PdfReader({
         const startingPage = clamp(initialPage.current, 1, loadedPdf.numPages);
         pendingScrollPage.current = startingPage;
         setCurrentPage((current) => (current === startingPage ? current : startingPage));
+        onLoadStatusRef.current({ phase: "ready", message: "PDF ready" });
       } catch (error) {
         if (cancelled) return;
-        const message = "This PDF could not be loaded. The file may be missing, blocked, or invalid.";
+        const detail = error instanceof Error && error.message ? ` ${error.message}` : "";
+        const message = `This PDF could not be loaded. The file may be missing, blocked, or invalid.${detail}`;
         setLoadError((current) => (current === message ? current : message));
         onErrorRef.current(message);
+        onLoadStatusRef.current({ phase: "error", message });
+        void loadingTask.destroy().catch(() => undefined);
         if (process.env.NODE_ENV !== "production") {
           console.error("[pdf-reader] load failed", error);
         }
@@ -1143,7 +1198,7 @@ export function PdfReader({
   }
 
   if (!pdf) {
-    return <div className="loading-state">Loading PDF</div>;
+    return <div className="loading-state">{loadMessage}</div>;
   }
 
   return (

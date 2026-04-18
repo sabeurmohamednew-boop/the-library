@@ -26,6 +26,7 @@ import {
   type ReaderCommand,
   type ReaderCommandInput,
   type ReaderEngineProps,
+  type ReaderLoadStatus,
   type ReaderSearchStatus,
   type ReaderShortcutDetail,
 } from "@/components/reader/types";
@@ -125,6 +126,7 @@ export function ReaderShell({ book }: ReaderShellProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searchStatus, setSearchStatus] = useState<ReaderSearchStatus>({ state: "idle", query: "" });
+  const [engineStatus, setEngineStatus] = useState<ReaderLoadStatus>({ phase: "idle", message: "Preparing reader" });
   const [overlayVisible, setOverlayVisible] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [error, setError] = useState("");
@@ -132,6 +134,16 @@ export function ReaderShell({ book }: ReaderShellProps) {
   const fileUrl = `/api/books/${book.slug}/file`;
   const progressPercent = Math.round((state.progress || 0) * 100);
   const currentLocator = useMemo(() => currentLocatorFor(book, state), [book, state]);
+
+  const handleLoadStatus = useCallback(
+    (status: ReaderLoadStatus) => {
+      setEngineStatus((current) => (current.phase === status.phase && current.message === status.message ? current : status));
+      if (process.env.NODE_ENV !== "production") {
+        console.info("[reader-shell] load-status", { slug: book.slug, format: book.format, ...status });
+      }
+    },
+    [book.format, book.slug],
+  );
 
   const updateState = useCallback((patch: Partial<ReaderState>) => {
     setState((current) => {
@@ -261,6 +273,7 @@ export function ReaderShell({ book }: ReaderShellProps) {
   );
 
   useClientLayoutEffect(() => {
+    setEngineStatus({ phase: "idle", message: "Preparing reader" });
     const saved = loadReaderState(book.slug);
     const params = new URLSearchParams(window.location.search);
 
@@ -552,7 +565,7 @@ export function ReaderShell({ book }: ReaderShellProps) {
       </div>
 
       <main className={panel ? "reader-main panel-open" : "reader-main"} id="main">
-        <section className="reader-stage" aria-label={`${book.format} reader`}>
+        <section className="reader-stage" aria-label={`${book.format} reader${engineStatus.phase === "ready" ? "" : `, ${engineStatus.message}`}`}>
           {!hydrated ? (
             <div className="loading-state">Opening reader</div>
           ) : (
@@ -568,6 +581,7 @@ export function ReaderShell({ book }: ReaderShellProps) {
                 onSearchStatus={setSearchStatus}
                 onLocationChange={handleLocationChange}
                 onError={setError}
+                onLoadStatus={handleLoadStatus}
               />
             </ReaderErrorBoundary>
           )}

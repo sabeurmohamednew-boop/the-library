@@ -3,8 +3,12 @@
 import ePub from "epubjs";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ReaderFailure } from "@/components/reader/ReaderFailure";
-import { READER_SHORTCUT_EVENT, type ReaderEngineProps, type ReaderShortcutDetail } from "@/components/reader/types";
+import { READER_SHORTCUT_EVENT, type ReaderEngineProps, type ReaderLoadStatus, type ReaderShortcutDetail } from "@/components/reader/types";
 import type { ReaderState, SearchResult, TocItem } from "@/lib/types";
+
+const EPUB_FETCH_TIMEOUT_MS = 30000;
+const EPUB_PARSE_TIMEOUT_MS = 20000;
+const EPUB_RENDER_TIMEOUT_MS = 20000;
 
 type EpubSettings = Pick<
   ReaderState,
@@ -84,6 +88,33 @@ function headerValue(response: Response, name: string) {
   return response.headers.get(name) ?? "";
 }
 
+async function responseErrorMessage(response: Response, fallback: string) {
+  const contentType = headerValue(response, "content-type").toLowerCase();
+
+  try {
+    if (contentType.includes("application/json")) {
+      const payload = (await response.json()) as { error?: unknown };
+      if (typeof payload.error === "string" && payload.error.trim()) {
+        return payload.error;
+      }
+    }
+
+    const text = await response.text();
+    if (text.trim()) {
+      return text.trim().slice(0, 220);
+    }
+  } catch {
+    return fallback;
+  }
+
+  return fallback;
+}
+
+function looksLikeEpubZip(buffer: ArrayBuffer) {
+  const bytes = new Uint8Array(buffer.slice(0, 4));
+  return bytes[0] === 0x50 && bytes[1] === 0x4b;
+}
+
 function isForwardableReaderShortcut(key: string) {
   if (key === "ArrowRight" || key === "PageDown" || key === "ArrowLeft" || key === "PageUp" || key === "?") {
     return true;
@@ -152,6 +183,25 @@ function withTimeout<T>(promise: Promise<T>, label: string, timeoutMs = 20000) {
       },
     );
   });
+}
+
+function sleep(ms: number) {
+  return new Promise<void>((resolve) => window.setTimeout(resolve, ms));
+}
+
+async function waitForRenditionContents(rendition: any, timeoutMs = 5000) {
+  const startedAt = Date.now();
+
+  while (Date.now() - startedAt < timeoutMs) {
+    const contents = typeof rendition?.getContents === "function" ? rendition.getContents() : [];
+    if (contents.length > 0) {
+      return contents;
+    }
+
+    await sleep(80);
+  }
+
+  throw new Error("EPUB display completed without rendering content.");
 }
 
 function getElementSize(element: HTMLElement | null) {
@@ -385,6 +435,7 @@ export function EpubReader({
   onSearchStatus,
   onLocationChange,
   onError,
+  onLoadStatus,
 }: ReaderEngineProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const bookRef = useRef<any>(null);
@@ -393,10 +444,12 @@ export function EpubReader({
   const handledCommand = useRef(0);
   const lastCfi = useRef("");
   const initialCfi = useRef(state.epubCfi);
+  const stateEpubCfiRef = useRef(state.epubCfi);
   const contentKeyboardDocumentsRef = useRef<WeakSet<Document>>(new WeakSet());
   const contentKeyboardCleanupsRef = useRef<Array<() => void>>([]);
   const [ready, setReady] = useState(false);
   const [loadError, setLoadError] = useState("");
+  const [loadMessage, setLoadMessage] = useState("Loading EPUB");
   const [retryKey, setRetryKey] = useState(0);
 
   const settings = useMemo<EpubSettings>(
@@ -421,14 +474,25 @@ export function EpubReader({
   }, [settings]);
 
   useEffect(() => {
+    stateEpubCfiRef.current = state.epubCfi;
+  }, [state.epubCfi]);
+
+  useEffect(() => {
     const element = containerRef.current;
     if (!element) return;
 
     let cancelled = false;
+    let fetchTimeout: number | null = null;
+    let fetchTimedOut = false;
+    const abortController = new AbortController();
     destroyedRef.current = false;
     setReady(false);
     setLoadError("");
+    setLoadMessage("Loading EPUB");
+    initialCfi.current = stateEpubCfiRef.current;
+    lastCfi.current = "";
     onError("");
+    onLoadStatus({ phase: "idle", message: "Preparing EPUB reader" });
     onTocChange([]);
     onSearchResults([]);
     onSearchStatus({ state: "idle", query: "" });
@@ -437,14 +501,38 @@ export function EpubReader({
     contentKeyboardCleanupsRef.current = [];
     contentKeyboardDocumentsRef.current = new WeakSet();
 
+    function reportStatus(status: ReaderLoadStatus) {
+      if (cancelled || destroyedRef.current) return;
+      setLoadMessage(status.message);
+      onLoadStatus(status);
+      devLog("status", status);
+    }
+
+    function failLoad(message: string, error: unknown) {
+      if (cancelled || destroyedRef.current) return;
+      setLoadError(message);
+      onError(message);
+      onLoadStatus({ phase: "error", message });
+      devError("load failed", error);
+    }
+
     async function loadBook() {
       let book: any = null;
       let rendition: any = null;
       let removeRelocatedListener: (() => void) | undefined;
 
       try {
+        reportStatus({ phase: "fetching", message: "Fetching EPUB file" });
         devLog("fetch:start", { url: fileUrl });
-        const response = await fetch(fileUrl);
+        fetchTimeout = window.setTimeout(() => {
+          fetchTimedOut = true;
+          abortController.abort();
+        }, EPUB_FETCH_TIMEOUT_MS);
+        const response = await fetch(fileUrl, { cache: "no-store", signal: abortController.signal });
+        if (fetchTimeout !== null) {
+          window.clearTimeout(fetchTimeout);
+          fetchTimeout = null;
+        }
         if (cancelled || destroyedRef.current) return undefined;
         devLog("fetch:response", {
           url: response.url,
@@ -456,10 +544,18 @@ export function EpubReader({
         });
 
         if (!response.ok) {
-          throw new Error(`EPUB request failed with status ${response.status}.`);
+          const detail = await responseErrorMessage(response, "Book file is unavailable.");
+          throw new Error(`EPUB request failed with status ${response.status}: ${detail}`);
         }
 
-        const buffer = await response.arrayBuffer();
+        const contentType = headerValue(response, "content-type").toLowerCase();
+        if (contentType.includes("text/html") || contentType.includes("application/json")) {
+          const detail = await responseErrorMessage(response, "The reader received a non-EPUB response.");
+          throw new Error(`EPUB request returned ${contentType || "an unsupported response"}: ${detail}`);
+        }
+
+        reportStatus({ phase: "parsing", message: "Reading EPUB file" });
+        const buffer = await withTimeout(response.arrayBuffer(), "EPUB download", EPUB_FETCH_TIMEOUT_MS);
         if (cancelled || destroyedRef.current) return undefined;
         devLog("fetch:buffer", { byteLength: buffer.byteLength });
 
@@ -467,11 +563,11 @@ export function EpubReader({
           throw new Error("EPUB response was empty.");
         }
 
-        const contentType = headerValue(response, "content-type").toLowerCase();
-        if (contentType.includes("text/html")) {
-          throw new Error("EPUB request returned HTML instead of an EPUB file.");
+        if (!looksLikeEpubZip(buffer)) {
+          throw new Error("EPUB response did not look like a valid EPUB/ZIP file.");
         }
 
+        reportStatus({ phase: "parsing", message: "Parsing EPUB package" });
         devLog("epub:init", { byteLength: buffer.byteLength });
         book = ePub(buffer);
         if (cancelled || destroyedRef.current) {
@@ -480,10 +576,17 @@ export function EpubReader({
         }
         bookRef.current = book;
 
+        await withTimeout(Promise.resolve(book.opened ?? book.ready), "book.opened", EPUB_PARSE_TIMEOUT_MS);
+        if (cancelled || destroyedRef.current) {
+          safeCall(() => book?.destroy?.());
+          return undefined;
+        }
+
         book.ready?.catch((error: unknown) => {
           devError("book.ready rejected", error);
         });
 
+        reportStatus({ phase: "rendering", message: "Rendering EPUB" });
         devLog("rendition:renderTo:start");
         const initialSize = getElementSize(element);
         rendition = book.renderTo(element, {
@@ -548,22 +651,30 @@ export function EpubReader({
         const handleRendering = (_section: unknown) => {
           devLog("rendition:rendering");
         };
+        const handleRenditionError = (error: unknown) => {
+          failLoad("This EPUB could not be rendered. Try refreshing or download the file directly.", error);
+          safeCall(() => rendition?.destroy?.());
+          safeCall(() => book?.destroy?.());
+        };
 
         rendition.on?.("relocated", handleRelocated);
         rendition.on?.("rendered", handleRendered);
         rendition.on?.("displayed", handleDisplayed);
         rendition.on?.("rendering", handleRendering);
         rendition.on?.("layout", handleLayout);
+        rendition.on?.("displayerror", handleRenditionError);
+        rendition.on?.("loaderror", handleRenditionError);
         removeRelocatedListener = () => {
           rendition.off?.("relocated", handleRelocated);
           rendition.off?.("rendered", handleRendered);
           rendition.off?.("displayed", handleDisplayed);
           rendition.off?.("rendering", handleRendering);
           rendition.off?.("layout", handleLayout);
+          rendition.off?.("displayerror", handleRenditionError);
+          rendition.off?.("loaderror", handleRenditionError);
+          rendition.off?.("error", handleRenditionError);
         };
-        rendition.on?.("error", (error: unknown) => {
-          devError("rendition error", error);
-        });
+        rendition.on?.("error", handleRenditionError);
         rendition.hooks?.content?.register?.((contents: any) => {
           applyContentStyleToContent(contents, settingsRef.current);
           bindContentKeyboardShortcuts(contents, contentKeyboardDocumentsRef, contentKeyboardCleanupsRef);
@@ -572,7 +683,7 @@ export function EpubReader({
         applySettings(rendition, settingsRef.current, { resize: false, container: element });
 
         devLog("book.ready:start");
-        await withTimeout(book.ready, "book.ready");
+        await withTimeout(book.ready, "book.ready", EPUB_PARSE_TIMEOUT_MS);
         if (cancelled || destroyedRef.current) return;
         devLog("book.ready:done");
 
@@ -585,13 +696,15 @@ export function EpubReader({
         }
 
         devLog("rendition.display:start", { target: initialCfi.current || "start" });
-        await withTimeout(Promise.resolve(rendition.display(initialCfi.current || undefined)), "rendition.display");
+        await withTimeout(Promise.resolve(rendition.display(initialCfi.current || undefined)), "rendition.display", EPUB_RENDER_TIMEOUT_MS);
         if (cancelled || destroyedRef.current) return;
         devLog("rendition.display:done");
-        const activeContents = typeof rendition.getContents === "function" ? rendition.getContents() : [];
+        const activeContents = await waitForRenditionContents(rendition);
+        if (cancelled || destroyedRef.current) return;
         activeContents.forEach((content: any) => bindContentKeyboardShortcuts(content, contentKeyboardDocumentsRef, contentKeyboardCleanupsRef));
 
         setReady(true);
+        reportStatus({ phase: "ready", message: "EPUB ready" });
         window.requestAnimationFrame(() => {
           if (!cancelled && !destroyedRef.current) {
             applySettings(rendition, settingsRef.current, { container: element });
@@ -606,10 +719,11 @@ export function EpubReader({
         return removeRelocatedListener;
       } catch (error) {
         if (cancelled || destroyedRef.current) return undefined;
-        const message = "This EPUB could not be loaded. The file may be missing, blocked, or invalid.";
-        setLoadError(message);
-        onError(message);
-        devError("load failed", error);
+        abortController.abort();
+        const isAbort = typeof error === "object" && error !== null && "name" in error && (error as { name?: unknown }).name === "AbortError";
+        const detail = fetchTimedOut && isAbort ? " EPUB request timed out." : error instanceof Error && error.message ? ` ${error.message}` : "";
+        const message = `This EPUB could not be loaded. The file may be missing, blocked, or invalid.${detail}`;
+        failLoad(message, error);
         safeCall(() => rendition?.destroy?.());
         safeCall(() => book?.destroy?.());
         return undefined;
@@ -624,6 +738,10 @@ export function EpubReader({
     return () => {
       cancelled = true;
       destroyedRef.current = true;
+      if (fetchTimeout !== null) {
+        window.clearTimeout(fetchTimeout);
+      }
+      abortController.abort();
       removeListeners?.();
       contentKeyboardCleanupsRef.current.forEach((cleanup) => cleanup());
       contentKeyboardCleanupsRef.current = [];
@@ -633,7 +751,7 @@ export function EpubReader({
       renditionRef.current = null;
       bookRef.current = null;
     };
-  }, [fileUrl, onError, onLocationChange, onSearchResults, onSearchStatus, onTocChange, retryKey]);
+  }, [fileUrl, onError, onLoadStatus, onLocationChange, onSearchResults, onSearchStatus, onTocChange, retryKey]);
 
   useEffect(() => {
     if (!ready || destroyedRef.current) return;
@@ -763,7 +881,7 @@ export function EpubReader({
 
   return (
     <div className={state.layout === "vertical" ? "reader-viewer vertical" : "reader-viewer paginated"}>
-      {!ready ? <div className="loading-state">Loading EPUB</div> : null}
+      {!ready ? <div className="loading-state">{loadMessage}</div> : null}
       <div
         ref={containerRef}
         className="epub-stage"
