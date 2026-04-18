@@ -629,9 +629,10 @@ type ReaderPanelProps = {
 
 function ReaderPanel(props: ReaderPanelProps) {
   const { panel, close } = props;
+  const panelClassName = `reader-panel reader-panel-${panel}`;
 
   return (
-    <aside className="reader-panel" aria-label="Reader panel">
+    <aside className={panelClassName} aria-label="Reader panel">
       <div className="panel-head">
         <h2>{panelTitle(panel)}</h2>
         <button className="icon-button subtle" type="button" onClick={close} aria-label="Close panel">
