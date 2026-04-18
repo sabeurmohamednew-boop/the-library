@@ -50,7 +50,7 @@ export default async function AuthorPage({ params }: AuthorPageProps) {
   const author = books.map((book) => matchingAuthorForSlug(book, decodeSlug(slug))).find(Boolean) ?? books[0].authors[0] ?? books[0].author;
 
   return (
-    <main className="site-shell" id="main">
+    <main className="site-shell author-page" id="main">
       <div className="page-topline">
         <Link className="button subtle" href="/">
           Back to The Library

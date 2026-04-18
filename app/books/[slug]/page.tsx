@@ -52,7 +52,7 @@ export default async function BookPage({ params }: BookPageProps) {
   const fileAvailable = bookFileAvailable(book);
 
   return (
-    <main className="site-shell" id="main">
+    <main className="site-shell book-detail-page" id="main">
       <div className="page-topline">
         <Link className="button subtle" href="/">
           Back to The Library
