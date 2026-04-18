@@ -1,14 +1,9 @@
-import { ThemeToggle } from "@/components/ThemeToggle";
-
 export default function Loading() {
   return (
     <main className="site-shell" id="main">
       <div className="page-topline">
         <h1 className="site-title">The Library</h1>
-        <div className="topline-actions">
-          <span className="muted small">Loading books</span>
-          <ThemeToggle />
-        </div>
+        <span className="muted small">Loading books</span>
       </div>
       <div className="skeleton-grid" aria-hidden="true">
         {Array.from({ length: 10 }).map((_, index) => (
