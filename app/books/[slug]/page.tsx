@@ -7,6 +7,7 @@ import { BookBookmarkButton } from "@/components/library/BookBookmarkButton";
 import { BookCover } from "@/components/library/BookCover";
 import { RuntimeNotice } from "@/components/RuntimeNotice";
 import { ShareButton } from "@/components/ShareButton";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { categoryLabel } from "@/lib/config";
 import { safeGetBookBySlug, safeGetRelatedBooks } from "@/lib/books";
 import { bookFileAvailable } from "@/lib/storage";
@@ -57,6 +58,7 @@ export default async function BookPage({ params }: BookPageProps) {
         <Link className="button subtle" href="/">
           Back to The Library
         </Link>
+        <ThemeToggle />
       </div>
 
       <section className="details-grid" aria-labelledby="book-title">

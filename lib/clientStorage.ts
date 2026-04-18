@@ -26,8 +26,8 @@ export function readerStateKey(slug: string) {
   return `${READER_STATE_PREFIX}${slug}`;
 }
 
-export function loadReaderState(slug: string): ReaderState {
-  return readJson<ReaderState>(readerStateKey(slug), {
+export function loadReaderState(slug: string, fallback?: ReaderState): ReaderState {
+  return readJson<ReaderState>(readerStateKey(slug), fallback ?? {
     ...DEFAULT_READER_PREFERENCES,
     slug,
     progress: 0,

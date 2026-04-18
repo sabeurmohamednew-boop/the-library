@@ -11,6 +11,7 @@ import type { BookDTO, ReaderState } from "@/lib/types";
 import { AuthorLinks } from "@/components/library/AuthorLinks";
 import { BookCard } from "@/components/library/BookCard";
 import { BookCover } from "@/components/library/BookCover";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 type ViewMode = "gallery" | "list" | "cover";
 type ListMode = "titles" | "authors";
@@ -160,7 +161,10 @@ export function LibraryClient({ books }: LibraryClientProps) {
     <main className="site-shell library-home" id="main">
       <header className="library-hero">
         <div className="library-heading">
-          <h1 className="site-title">The Library</h1>
+          <div className="library-title-row">
+            <h1 className="site-title">The Library</h1>
+            <ThemeToggle />
+          </div>
           <p className="library-subtitle">Find a book, save your place, and return when the page calls you back.</p>
         </div>
 

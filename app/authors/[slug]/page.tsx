@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BookCard } from "@/components/library/BookCard";
 import { RuntimeNotice } from "@/components/RuntimeNotice";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { matchingAuthorForSlug } from "@/lib/authors";
 import { safeGetBooksByAuthorSlug } from "@/lib/books";
 
@@ -55,6 +56,7 @@ export default async function AuthorPage({ params }: AuthorPageProps) {
         <Link className="button subtle" href="/">
           Back to The Library
         </Link>
+        <ThemeToggle />
       </div>
 
       <section aria-labelledby="author-heading">

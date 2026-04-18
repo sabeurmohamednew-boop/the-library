@@ -9,7 +9,7 @@ type ReaderRouteErrorShellProps = {
 
 export function ReaderRouteErrorShell({ downloadUrl, onRetry }: ReaderRouteErrorShellProps) {
   return (
-    <div className="reader-page theme-light">
+    <div className="reader-page">
       <header className="reader-topbar">
         <div className="reader-title-row">
           <Link className="button subtle" href="/" aria-label="Back to The Library">

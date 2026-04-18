@@ -40,7 +40,7 @@ export function ReaderLoadingFrame(props: ReaderLoadingStateProps) {
 
 export function ReaderRouteLoadingShell() {
   return (
-    <div className="reader-page theme-light reader-loading-page">
+    <div className="reader-page reader-loading-page">
       <header className="reader-topbar">
         <div className="reader-title-row">
           <Link className="button subtle" href="/" aria-label="Back to The Library">

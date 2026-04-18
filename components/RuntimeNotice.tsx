@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import type { RuntimeFailure } from "@/lib/runtime";
 
 type RuntimeNoticeProps = {
@@ -14,11 +15,14 @@ export function RuntimeNotice({ failure, title = "The Library is temporarily una
         <Link className="button subtle" href="/">
           Back to The Library
         </Link>
-        {adminHref ? (
-          <Link className="button" href={adminHref}>
-            Admin
-          </Link>
-        ) : null}
+        <div className="topline-actions">
+          {adminHref ? (
+            <Link className="button" href={adminHref}>
+              Admin
+            </Link>
+          ) : null}
+          <ThemeToggle />
+        </div>
       </div>
       <section className="empty-state" aria-live="polite">
         <h1>{title}</h1>

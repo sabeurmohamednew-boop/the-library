@@ -19,6 +19,7 @@ import {
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { DEFAULT_READER_PREFERENCES } from "@/lib/config";
 import { loadReaderState, saveReaderState, setBookBookmarked } from "@/lib/clientStorage";
+import { getClientTheme, readerThemeForGlobalTheme } from "@/lib/theme";
 import type { BookDTO, ReaderBookmark, ReaderLocator, ReaderState, SearchResult, TocItem } from "@/lib/types";
 import { ShareButton } from "@/components/ShareButton";
 import { ReaderErrorBoundary } from "@/components/reader/ReaderErrorBoundary";
@@ -51,9 +52,10 @@ type ReaderShellProps = {
 
 type Panel = "toc" | "bookmarks" | "settings" | "search" | "menu" | null;
 
-function createInitialState(slug: string): ReaderState {
+function createInitialState(slug: string, theme: ReaderState["theme"] = DEFAULT_READER_PREFERENCES.theme): ReaderState {
   return {
     ...DEFAULT_READER_PREFERENCES,
+    theme,
     slug,
     progress: 0,
     pdfPage: 1,
@@ -283,7 +285,9 @@ export function ReaderShell({ book }: ReaderShellProps) {
 
   useClientLayoutEffect(() => {
     setEngineStatus({ phase: "idle", message: "Preparing reader" });
-    const saved = loadReaderState(book.slug);
+    const globalReaderTheme = readerThemeForGlobalTheme(getClientTheme());
+    const defaultState = createInitialState(book.slug, globalReaderTheme);
+    const saved = loadReaderState(book.slug, defaultState);
     const params = new URLSearchParams(window.location.search);
     const storedCfi = typeof saved.epubCfi === "string" ? saved.epubCfi.trim() : "";
     let restoreSource: "none" | "localStorage" | "url" = storedCfi ? "localStorage" : "none";
@@ -306,13 +310,14 @@ export function ReaderShell({ book }: ReaderShellProps) {
       slug: book.slug,
       format: book.format,
       restoreSource,
+      globalReaderTheme,
       storedCfi: cfiSnapshot(storedCfi),
       urlCfi: cfiSnapshot(params.get("cfi")),
       restoredCfi: cfiSnapshot(saved.epubCfi),
     });
 
     setState({
-      ...createInitialState(book.slug),
+      ...defaultState,
       ...saved,
       lastOpenedAt: new Date().toISOString(),
     });
