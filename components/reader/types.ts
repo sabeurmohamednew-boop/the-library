@@ -24,7 +24,7 @@ export type ReaderSearchStatus = {
 };
 
 export type ReaderLoadStatus = {
-  phase: "idle" | "fetching" | "parsing" | "rendering" | "ready" | "error";
+  phase: "idle" | "fetching" | "parsing" | "rendering" | "retrying" | "ready" | "error";
   message: string;
 };
 

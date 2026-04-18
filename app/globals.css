@@ -1103,6 +1103,34 @@ canvas {
   display: block;
 }
 
+.epub-reader-viewer {
+  position: relative;
+}
+
+.reader-loading-cover {
+  position: absolute;
+  inset: 18px;
+  z-index: 8;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+
+.reader-loading-cover .loading-state {
+  max-width: min(420px, 100%);
+  background: rgb(255 255 255 / 0.96);
+  box-shadow: 0 8px 24px rgb(20 24 22 / 0.08);
+  pointer-events: auto;
+}
+
+.theme-dark .reader-loading-cover .loading-state {
+  background: rgb(26 28 24 / 0.96);
+}
+
+.theme-sepia .reader-loading-cover .loading-state {
+  background: rgb(250 242 225 / 0.96);
+}
+
 .reader-panel {
   border-left: 1px solid var(--line);
   background: var(--surface);
@@ -1590,6 +1618,10 @@ kbd {
     height: calc(100vh - 52px);
     height: calc(100dvh - 52px);
     padding: 8px;
+  }
+
+  .reader-loading-cover {
+    inset: 8px;
   }
 
   .pdf-spread {

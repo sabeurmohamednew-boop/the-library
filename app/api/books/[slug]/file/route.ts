@@ -12,9 +12,10 @@ type RouteContext = {
 };
 
 function devLog(message: string, data?: Record<string, unknown>) {
-  if (process.env.NODE_ENV !== "production") {
-    console.info(`[book-file] ${message}`, data ?? "");
-  }
+  console.info(`[book-file] ${message}`, {
+    at: new Date().toISOString(),
+    ...(data ?? {}),
+  });
 }
 
 function dispositionFilename(title: string, extension: string) {
@@ -54,13 +55,33 @@ async function handleFileRequest(request: Request, context: RouteContext, headOn
     if (range) headers.set("range", range);
     const abortController = new AbortController();
     const timeout = setTimeout(() => abortController.abort(), BOOK_FILE_FETCH_TIMEOUT_MS);
+    const startedAt = Date.now();
 
+    devLog("blob-fetch:start", {
+      slug: decodedSlug,
+      range,
+      headOnly,
+      method: headOnly ? "HEAD" : "GET",
+      blobPath: book.bookBlobPath,
+    });
     const blobResponse = await fetch(book.bookBlobUrl, {
       method: headOnly ? "HEAD" : "GET",
       headers,
       cache: "no-store",
       signal: abortController.signal,
     }).finally(() => clearTimeout(timeout));
+    devLog("blob-fetch:end", {
+      slug: decodedSlug,
+      status: blobResponse.status,
+      ok: blobResponse.ok,
+      range,
+      headOnly,
+      elapsedMs: Date.now() - startedAt,
+      contentType: blobResponse.headers.get("content-type"),
+      contentLength: blobResponse.headers.get("content-length"),
+      contentRange: blobResponse.headers.get("content-range"),
+      acceptRanges: blobResponse.headers.get("accept-ranges"),
+    });
 
     if (!blobResponse.ok && blobResponse.status !== 206 && blobResponse.status !== 416) {
       devLog("blob-fetch-failed", { slug: decodedSlug, status: blobResponse.status, range });

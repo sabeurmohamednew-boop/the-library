@@ -9,6 +9,8 @@ import type { ReaderState, SearchResult, TocItem } from "@/lib/types";
 const EPUB_FETCH_TIMEOUT_MS = 30000;
 const EPUB_PARSE_TIMEOUT_MS = 20000;
 const EPUB_RENDER_TIMEOUT_MS = 20000;
+const EPUB_LAYOUT_TIMEOUT_MS = 5000;
+const EPUB_CONTENT_TIMEOUT_MS = 6500;
 
 type EpubSettings = Pick<
   ReaderState,
@@ -63,25 +65,27 @@ function safeCall(callback: () => void) {
   }
 }
 
-function readerDebugEnabled() {
-  if (process.env.NODE_ENV === "production" || typeof window === "undefined") return false;
-  try {
-    return window.localStorage.getItem("library:debug-reader") === "1";
-  } catch {
-    return false;
-  }
-}
-
 function devLog(message: string, data?: Record<string, unknown>) {
-  if (readerDebugEnabled()) {
-    console.info(`[epub-reader] ${message}`, data ?? "");
-  }
+  console.info(`[epub-reader] ${message}`, {
+    at: new Date().toISOString(),
+    ...(data ?? {}),
+  });
 }
 
-function devError(message: string, error: unknown) {
-  if (process.env.NODE_ENV !== "production") {
-    console.error(`[epub-reader] ${message}`, error);
+function errorSummary(error: unknown) {
+  if (error instanceof Error) {
+    return { name: error.name, message: error.message, stack: error.stack };
   }
+
+  return { message: String(error) };
+}
+
+function devError(message: string, error: unknown, data?: Record<string, unknown>) {
+  console.error(`[epub-reader] ${message}`, {
+    at: new Date().toISOString(),
+    ...errorSummary(error),
+    ...(data ?? {}),
+  });
 }
 
 function headerValue(response: Response, name: string) {
@@ -189,28 +193,187 @@ function sleep(ms: number) {
   return new Promise<void>((resolve) => window.setTimeout(resolve, ms));
 }
 
-async function waitForRenditionContents(rendition: any, timeoutMs = 5000) {
+type ElementDiagnostics = {
+  connected: boolean;
+  display: string;
+  visibility: string;
+  rectWidth: number;
+  rectHeight: number;
+  clientWidth: number;
+  clientHeight: number;
+  offsetWidth: number;
+  offsetHeight: number;
+};
+
+type RenditionDiagnostics = ElementDiagnostics & {
+  contentsCount: number;
+  epubContainerWidth: number;
+  epubContainerHeight: number;
+  iframeCount: number;
+  iframeWidth: number;
+  iframeHeight: number;
+  bodyExists: boolean;
+  bodyTextLength: number;
+  bodyChildElementCount: number;
+  bodyScrollHeight: number;
+  bodyClientHeight: number;
+  bodyReadyState: string;
+  contentReadError?: string;
+};
+
+function rounded(value: number) {
+  return Math.round(value * 10) / 10;
+}
+
+function measureElement(element: HTMLElement | null): ElementDiagnostics {
+  if (!element) {
+    return {
+      connected: false,
+      display: "missing",
+      visibility: "missing",
+      rectWidth: 0,
+      rectHeight: 0,
+      clientWidth: 0,
+      clientHeight: 0,
+      offsetWidth: 0,
+      offsetHeight: 0,
+    };
+  }
+
+  const rect = element.getBoundingClientRect();
+  const styles = window.getComputedStyle(element);
+  return {
+    connected: element.isConnected,
+    display: styles.display,
+    visibility: styles.visibility,
+    rectWidth: rounded(rect.width),
+    rectHeight: rounded(rect.height),
+    clientWidth: element.clientWidth,
+    clientHeight: element.clientHeight,
+    offsetWidth: element.offsetWidth,
+    offsetHeight: element.offsetHeight,
+  };
+}
+
+function hasUsableLayout(diagnostics: ElementDiagnostics) {
+  const width = Math.max(diagnostics.rectWidth, diagnostics.clientWidth, diagnostics.offsetWidth);
+  const height = Math.max(diagnostics.rectHeight, diagnostics.clientHeight, diagnostics.offsetHeight);
+
+  return diagnostics.connected && diagnostics.display !== "none" && diagnostics.visibility !== "hidden" && width >= 120 && height >= 120;
+}
+
+async function waitForElementLayout(element: HTMLElement | null, timeoutMs = EPUB_LAYOUT_TIMEOUT_MS) {
   const startedAt = Date.now();
+  let diagnostics = measureElement(element);
+  devLog("stage:layout-wait:start", diagnostics);
 
   while (Date.now() - startedAt < timeoutMs) {
-    const contents = typeof rendition?.getContents === "function" ? rendition.getContents() : [];
-    if (contents.length > 0) {
-      return contents;
+    diagnostics = measureElement(element);
+    if (hasUsableLayout(diagnostics)) {
+      devLog("stage:layout-ready", { elapsedMs: Date.now() - startedAt, ...diagnostics });
+      return diagnostics;
     }
 
     await sleep(80);
   }
 
-  throw new Error("EPUB display completed without rendering content.");
+  const error = new Error("EPUB reader stage never received usable layout.");
+  (error as Error & { diagnostics?: ElementDiagnostics }).diagnostics = diagnostics;
+  devError("stage:layout-timeout", error, diagnostics);
+  throw error;
 }
 
-function getElementSize(element: HTMLElement | null) {
-  if (!element) return { width: 0, height: 0 };
-  const rect = element.getBoundingClientRect();
+function getRenditionSize(element: HTMLElement | null) {
+  const diagnostics = measureElement(element);
   return {
-    width: Math.max(320, Math.floor(rect.width || element.clientWidth || 0)),
-    height: Math.max(320, Math.floor(rect.height || element.clientHeight || 0)),
+    width: Math.max(320, Math.floor(diagnostics.rectWidth || diagnostics.clientWidth || diagnostics.offsetWidth || 0)),
+    height: Math.max(320, Math.floor(diagnostics.rectHeight || diagnostics.clientHeight || diagnostics.offsetHeight || 0)),
   };
+}
+
+function collectRenditionDiagnostics(rendition: any, element: HTMLElement | null): RenditionDiagnostics {
+  const elementDiagnostics = measureElement(element);
+  const contents = typeof rendition?.getContents === "function" ? rendition.getContents() : [];
+  const epubContainer = element?.querySelector(".epub-container") as HTMLElement | null;
+  const epubContainerRect = epubContainer?.getBoundingClientRect();
+  const firstIframe = element?.querySelector("iframe") as HTMLIFrameElement | null;
+  const iframeRect = firstIframe?.getBoundingClientRect();
+  let bodyExists = false;
+  let bodyTextLength = 0;
+  let bodyChildElementCount = 0;
+  let bodyScrollHeight = 0;
+  let bodyClientHeight = 0;
+  let bodyReadyState = "";
+  let contentReadError: string | undefined;
+
+  try {
+    const firstContent = contents[0];
+    const documentElement =
+      (firstContent?.document as Document | undefined) ??
+      (firstContent?.window?.document as Document | undefined) ??
+      firstIframe?.contentDocument ??
+      null;
+    const body = documentElement?.body ?? null;
+
+    bodyExists = Boolean(body);
+    bodyTextLength = body?.textContent?.replace(/\s+/g, " ").trim().length ?? 0;
+    bodyChildElementCount = body?.childElementCount ?? 0;
+    bodyScrollHeight = body?.scrollHeight ?? 0;
+    bodyClientHeight = body?.clientHeight ?? 0;
+    bodyReadyState = documentElement?.readyState ?? "";
+  } catch (error) {
+    contentReadError = error instanceof Error ? error.message : String(error);
+  }
+
+  return {
+    ...elementDiagnostics,
+    contentsCount: contents.length,
+    epubContainerWidth: rounded(epubContainerRect?.width ?? 0),
+    epubContainerHeight: rounded(epubContainerRect?.height ?? 0),
+    iframeCount: element?.querySelectorAll("iframe").length ?? 0,
+    iframeWidth: rounded(iframeRect?.width ?? 0),
+    iframeHeight: rounded(iframeRect?.height ?? 0),
+    bodyExists,
+    bodyTextLength,
+    bodyChildElementCount,
+    bodyScrollHeight,
+    bodyClientHeight,
+    bodyReadyState,
+    ...(contentReadError ? { contentReadError } : {}),
+  };
+}
+
+function hasVisibleRenditionContent(diagnostics: RenditionDiagnostics) {
+  return (
+    hasUsableLayout(diagnostics) &&
+    diagnostics.contentsCount > 0 &&
+    diagnostics.iframeCount > 0 &&
+    diagnostics.iframeWidth > 0 &&
+    diagnostics.iframeHeight > 0 &&
+    diagnostics.bodyExists &&
+    (diagnostics.bodyTextLength > 0 || diagnostics.bodyChildElementCount > 0 || diagnostics.bodyScrollHeight > 0)
+  );
+}
+
+async function waitForVisibleRenditionContent(rendition: any, element: HTMLElement | null, timeoutMs = EPUB_CONTENT_TIMEOUT_MS) {
+  const startedAt = Date.now();
+  let diagnostics = collectRenditionDiagnostics(rendition, element);
+  devLog("contents:wait:start", diagnostics);
+
+  while (Date.now() - startedAt < timeoutMs) {
+    diagnostics = collectRenditionDiagnostics(rendition, element);
+    if (hasVisibleRenditionContent(diagnostics)) {
+      devLog("contents:first-rendered", { elapsedMs: Date.now() - startedAt, ...diagnostics });
+      return diagnostics;
+    }
+
+    await sleep(100);
+  }
+
+  const error = new Error("EPUB display completed without visible iframe content.");
+  (error as Error & { diagnostics?: RenditionDiagnostics }).diagnostics = diagnostics;
+  devError("contents:wait-timeout", error, diagnostics);
+  throw error;
 }
 
 function buildContentCss(settings: EpubSettings) {
@@ -323,7 +486,7 @@ function applyContentStyleToContent(content: any, settings: EpubSettings) {
 
 function resizeRenditionToElement(rendition: any, element: HTMLElement | null) {
   if (!rendition?.manager || typeof rendition.resize !== "function") return;
-  const { width, height } = getElementSize(element);
+  const { width, height } = getRenditionSize(element);
   if (width <= 0 || height <= 0) return;
   rendition.resize(width, height);
 }
@@ -484,6 +647,8 @@ export function EpubReader({
     let cancelled = false;
     let fetchTimeout: number | null = null;
     let fetchTimedOut = false;
+    let failed = false;
+    let loadSettled = false;
     const abortController = new AbortController();
     destroyedRef.current = false;
     setReady(false);
@@ -502,7 +667,7 @@ export function EpubReader({
     contentKeyboardDocumentsRef.current = new WeakSet();
 
     function reportStatus(status: ReaderLoadStatus) {
-      if (cancelled || destroyedRef.current) return;
+      if (cancelled || destroyedRef.current || failed) return;
       setLoadMessage(status.message);
       onLoadStatus(status);
       devLog("status", status);
@@ -510,10 +675,38 @@ export function EpubReader({
 
     function failLoad(message: string, error: unknown) {
       if (cancelled || destroyedRef.current) return;
+      failed = true;
+      loadSettled = true;
+      setReady(false);
       setLoadError(message);
       onError(message);
       onLoadStatus({ phase: "error", message });
       devError("load failed", error);
+    }
+
+    function handleWindowError(event: ErrorEvent) {
+      if (loadSettled) return;
+      devError("window:error-during-epub-load", event.error ?? event.message, { source: event.filename, line: event.lineno, column: event.colno });
+    }
+
+    function handleUnhandledRejection(event: PromiseRejectionEvent) {
+      if (loadSettled) return;
+      devError("window:unhandled-rejection-during-epub-load", event.reason);
+    }
+
+    window.addEventListener("error", handleWindowError);
+    window.addEventListener("unhandledrejection", handleUnhandledRejection);
+
+    async function waitForInitialStageLayout() {
+      try {
+        return await waitForElementLayout(element, EPUB_LAYOUT_TIMEOUT_MS);
+      } catch (firstLayoutError) {
+        if (cancelled || destroyedRef.current || failed) throw firstLayoutError;
+        devError("stage:initial-layout-first-attempt-failed", firstLayoutError, measureElement(element));
+        reportStatus({ phase: "retrying", message: "Retrying reader layout" });
+        await sleep(180);
+        return waitForElementLayout(element, EPUB_LAYOUT_TIMEOUT_MS);
+      }
     }
 
     async function loadBook() {
@@ -533,8 +726,8 @@ export function EpubReader({
           window.clearTimeout(fetchTimeout);
           fetchTimeout = null;
         }
-        if (cancelled || destroyedRef.current) return undefined;
-        devLog("fetch:response", {
+        if (cancelled || destroyedRef.current || failed) return undefined;
+        devLog("fetch:end", {
           url: response.url,
           status: response.status,
           ok: response.ok,
@@ -556,8 +749,8 @@ export function EpubReader({
 
         reportStatus({ phase: "parsing", message: "Reading EPUB file" });
         const buffer = await withTimeout(response.arrayBuffer(), "EPUB download", EPUB_FETCH_TIMEOUT_MS);
-        if (cancelled || destroyedRef.current) return undefined;
-        devLog("fetch:buffer", { byteLength: buffer.byteLength });
+        if (cancelled || destroyedRef.current || failed) return undefined;
+        devLog("fetch:blob", { byteLength: buffer.byteLength });
 
         if (buffer.byteLength <= 0) {
           throw new Error("EPUB response was empty.");
@@ -570,25 +763,34 @@ export function EpubReader({
         reportStatus({ phase: "parsing", message: "Parsing EPUB package" });
         devLog("epub:init", { byteLength: buffer.byteLength });
         book = ePub(buffer);
-        if (cancelled || destroyedRef.current) {
+        if (cancelled || destroyedRef.current || failed) {
           safeCall(() => book?.destroy?.());
           return undefined;
         }
         bookRef.current = book;
 
+        devLog("epub:open:start");
         await withTimeout(Promise.resolve(book.opened ?? book.ready), "book.opened", EPUB_PARSE_TIMEOUT_MS);
-        if (cancelled || destroyedRef.current) {
+        if (cancelled || destroyedRef.current || failed) {
           safeCall(() => book?.destroy?.());
           return undefined;
         }
+        devLog("epub:open:end");
 
         book.ready?.catch((error: unknown) => {
           devError("book.ready rejected", error);
         });
 
-        reportStatus({ phase: "rendering", message: "Rendering EPUB" });
-        devLog("rendition:renderTo:start");
-        const initialSize = getElementSize(element);
+        reportStatus({ phase: "rendering", message: "Waiting for reader layout" });
+        await waitForInitialStageLayout();
+        if (cancelled || destroyedRef.current || failed) {
+          safeCall(() => book?.destroy?.());
+          return undefined;
+        }
+
+        reportStatus({ phase: "rendering", message: "Creating EPUB renderer" });
+        const initialSize = getRenditionSize(element);
+        devLog("rendition:renderTo:start", { ...initialSize, stage: measureElement(element) });
         rendition = book.renderTo(element, {
           width: initialSize.width,
           height: initialSize.height,
@@ -596,16 +798,16 @@ export function EpubReader({
           spread: settingsRef.current.layout === "paginated" && settingsRef.current.dualPage ? "always" : "none",
           manager: "default",
         });
-        if (cancelled || destroyedRef.current) {
+        if (cancelled || destroyedRef.current || failed) {
           safeCall(() => rendition?.destroy?.());
           safeCall(() => book?.destroy?.());
           return undefined;
         }
         renditionRef.current = rendition;
-        devLog("rendition:renderTo:done");
+        devLog("rendition:renderTo:done", collectRenditionDiagnostics(rendition, element));
 
         const handleRelocated = (location: any) => {
-          if (cancelled || destroyedRef.current) return;
+          if (cancelled || destroyedRef.current || failed) return;
           const cfi = location?.start?.cfi;
           if (!cfi || cfi === lastCfi.current) return;
           lastCfi.current = cfi;
@@ -637,24 +839,22 @@ export function EpubReader({
           window.setTimeout(run, 80);
         };
         const handleRendered = (_section: unknown) => {
-          devLog("rendition:rendered");
+          devLog("rendition:rendered", collectRenditionDiagnostics(rendition, element));
           applyCurrentContentStyles();
         };
         const handleDisplayed = (_section: unknown) => {
-          devLog("rendition:displayed");
+          devLog("rendition:displayed", collectRenditionDiagnostics(rendition, element));
           applyCurrentContentStyles();
         };
         const handleLayout = (_layout: unknown) => {
-          devLog("rendition:layout");
+          devLog("rendition:layout", collectRenditionDiagnostics(rendition, element));
           applyCurrentContentStyles();
         };
         const handleRendering = (_section: unknown) => {
-          devLog("rendition:rendering");
+          devLog("rendition:rendering", measureElement(element));
         };
         const handleRenditionError = (error: unknown) => {
-          failLoad("This EPUB could not be rendered. Try refreshing or download the file directly.", error);
-          safeCall(() => rendition?.destroy?.());
-          safeCall(() => book?.destroy?.());
+          devError("rendition:event-error", error, collectRenditionDiagnostics(rendition, element));
         };
 
         rendition.on?.("relocated", handleRelocated);
@@ -684,26 +884,58 @@ export function EpubReader({
 
         devLog("book.ready:start");
         await withTimeout(book.ready, "book.ready", EPUB_PARSE_TIMEOUT_MS);
-        if (cancelled || destroyedRef.current) return;
+        if (cancelled || destroyedRef.current || failed) return;
         devLog("book.ready:done");
 
         const navigation = await book.loaded.navigation.catch((error: unknown) => {
           devError("navigation load failed", error);
           return null;
         });
-        if (!cancelled && !destroyedRef.current) {
+        if (!cancelled && !destroyedRef.current && !failed) {
           onTocChange(flattenToc(navigation?.toc ?? []));
         }
 
-        devLog("rendition.display:start", { target: initialCfi.current || "start" });
-        await withTimeout(Promise.resolve(rendition.display(initialCfi.current || undefined)), "rendition.display", EPUB_RENDER_TIMEOUT_MS);
-        if (cancelled || destroyedRef.current) return;
-        devLog("rendition.display:done");
-        const activeContents = await waitForRenditionContents(rendition);
-        if (cancelled || destroyedRef.current) return;
+        async function displayAndValidate(attempt: number) {
+          reportStatus({
+            phase: attempt === 1 ? "rendering" : "retrying",
+            message: attempt === 1 ? "Displaying EPUB content" : "Retrying EPUB render",
+          });
+          await waitForElementLayout(element, EPUB_LAYOUT_TIMEOUT_MS);
+          if (cancelled || destroyedRef.current || failed) return null;
+
+          safeCall(() => resizeRenditionToElement(rendition, element));
+          applyContentStyles(rendition, settingsRef.current);
+          devLog("rendition.display:start", {
+            attempt,
+            target: initialCfi.current || "start",
+            stage: measureElement(element),
+          });
+          await withTimeout(Promise.resolve(rendition.display(initialCfi.current || undefined)), "rendition.display", EPUB_RENDER_TIMEOUT_MS);
+          if (cancelled || destroyedRef.current || failed) return null;
+
+          devLog("rendition.display:end", { attempt, diagnostics: collectRenditionDiagnostics(rendition, element) });
+          const diagnostics = await waitForVisibleRenditionContent(rendition, element, EPUB_CONTENT_TIMEOUT_MS);
+          if (cancelled || destroyedRef.current || failed) return null;
+
+          return diagnostics;
+        }
+
+        try {
+          await displayAndValidate(1);
+        } catch (firstDisplayError) {
+          if (cancelled || destroyedRef.current || failed) return;
+          devError("rendition.display:first-attempt-failed", firstDisplayError, collectRenditionDiagnostics(rendition, element));
+          reportStatus({ phase: "retrying", message: "Retrying EPUB render after layout settled" });
+          await sleep(180);
+          await displayAndValidate(2);
+        }
+
+        if (cancelled || destroyedRef.current || failed) return;
+        const activeContents = typeof rendition?.getContents === "function" ? rendition.getContents() : [];
         activeContents.forEach((content: any) => bindContentKeyboardShortcuts(content, contentKeyboardDocumentsRef, contentKeyboardCleanupsRef));
 
         setReady(true);
+        loadSettled = true;
         reportStatus({ phase: "ready", message: "EPUB ready" });
         window.requestAnimationFrame(() => {
           if (!cancelled && !destroyedRef.current) {
@@ -718,7 +950,7 @@ export function EpubReader({
 
         return removeRelocatedListener;
       } catch (error) {
-        if (cancelled || destroyedRef.current) return undefined;
+        if (cancelled || destroyedRef.current || failed) return undefined;
         abortController.abort();
         const isAbort = typeof error === "object" && error !== null && "name" in error && (error as { name?: unknown }).name === "AbortError";
         const detail = fetchTimedOut && isAbort ? " EPUB request timed out." : error instanceof Error && error.message ? ` ${error.message}` : "";
@@ -742,6 +974,8 @@ export function EpubReader({
         window.clearTimeout(fetchTimeout);
       }
       abortController.abort();
+      window.removeEventListener("error", handleWindowError);
+      window.removeEventListener("unhandledrejection", handleUnhandledRejection);
       removeListeners?.();
       contentKeyboardCleanupsRef.current.forEach((cleanup) => cleanup());
       contentKeyboardCleanupsRef.current = [];
@@ -880,13 +1114,16 @@ export function EpubReader({
   }
 
   return (
-    <div className={state.layout === "vertical" ? "reader-viewer vertical" : "reader-viewer paginated"}>
-      {!ready ? <div className="loading-state">{loadMessage}</div> : null}
+    <div className={state.layout === "vertical" ? "reader-viewer vertical epub-reader-viewer" : "reader-viewer paginated epub-reader-viewer"}>
+      {!ready ? (
+        <div className="reader-loading-cover" role="status" aria-live="polite">
+          <div className="loading-state">{loadMessage}</div>
+        </div>
+      ) : null}
       <div
         ref={containerRef}
         className="epub-stage"
         style={{
-          visibility: ready ? "visible" : "hidden",
           width: state.fitWidth ? "100%" : `${Math.max(420, Math.min(1180, state.zoom * 8))}px`,
           maxWidth: "100%",
         }}

@@ -138,9 +138,7 @@ export function ReaderShell({ book }: ReaderShellProps) {
   const handleLoadStatus = useCallback(
     (status: ReaderLoadStatus) => {
       setEngineStatus((current) => (current.phase === status.phase && current.message === status.message ? current : status));
-      if (process.env.NODE_ENV !== "production") {
-        console.info("[reader-shell] load-status", { slug: book.slug, format: book.format, ...status });
-      }
+      console.info("[reader-shell] load-status", { at: new Date().toISOString(), slug: book.slug, format: book.format, ...status });
     },
     [book.format, book.slug],
   );
