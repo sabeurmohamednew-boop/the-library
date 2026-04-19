@@ -889,15 +889,19 @@ export function ReaderShell({ book }: ReaderShellProps) {
       return target instanceof HTMLElement && Boolean(target.closest("button, a, input, textarea, select, [role='button'], [contenteditable='true']"));
     }
 
+    function isEpubFrameTarget(target: EventTarget | null) {
+      return target instanceof HTMLIFrameElement && Boolean(target.closest(".epub-stage"));
+    }
+
     function handlePointerDown(event: PointerEvent) {
-      if (isInteractiveTarget(event.target)) return;
+      if (isInteractiveTarget(event.target) || isEpubFrameTarget(event.target)) return;
       pointerStartRef.current = { x: event.clientX, y: event.clientY, time: Date.now() };
     }
 
     function handlePointerUp(event: PointerEvent) {
       const start = pointerStartRef.current;
       pointerStartRef.current = null;
-      if (!start || panel || isInteractiveTarget(event.target)) return;
+      if (!start || panel || isInteractiveTarget(event.target) || isEpubFrameTarget(event.target)) return;
       if (window.getSelection()?.toString().trim()) return;
 
       const dx = event.clientX - start.x;

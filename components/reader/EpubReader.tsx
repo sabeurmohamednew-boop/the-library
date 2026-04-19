@@ -1,7 +1,7 @@
 "use client";
 
 import ePub from "epubjs";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ReaderFailure } from "@/components/reader/ReaderFailure";
 import { ReaderLoadingState } from "@/components/reader/ReaderLoadingState";
 import {
@@ -19,6 +19,10 @@ const EPUB_PARSE_TIMEOUT_MS = 20000;
 const EPUB_RENDER_TIMEOUT_MS = 20000;
 const EPUB_LAYOUT_TIMEOUT_MS = 5000;
 const EPUB_CONTENT_TIMEOUT_MS = 6500;
+const PAGE_TURN_DEDUP_MS = 320;
+
+type PageTurnDirection = "prev" | "next";
+type PageTurnSource = "reader-command" | "content-gesture";
 
 type EpubSettings = Pick<
   ReaderState,
@@ -277,7 +281,7 @@ function bindContentKeyboardShortcuts(
 
 function bindContentPagingGestures(
   content: any,
-  rendition: any,
+  turnPage: (direction: PageTurnDirection, source: PageTurnSource) => void,
   settingsRef: { current: Pick<ReaderState, "layout" | "tapZones" | "swipePaging"> },
   boundDocuments: { current: WeakSet<Document> },
   cleanups: { current: Array<() => void> },
@@ -299,10 +303,9 @@ function bindContentPagingGestures(
     return { x: event.clientX, y: event.clientY };
   };
 
-  const pageTurn = (direction: "prev" | "next") => {
+  const pageTurn = (direction: PageTurnDirection) => {
     lastTurnAt = Date.now();
-    if (direction === "next") void rendition.next?.();
-    if (direction === "prev") void rendition.prev?.();
+    turnPage(direction, "content-gesture");
   };
 
   const handleStart = (event: PointerEvent | TouchEvent) => {
@@ -348,16 +351,23 @@ function bindContentPagingGestures(
     }
   };
 
-  documentElement.addEventListener("pointerdown", handleStart);
-  documentElement.addEventListener("pointerup", handleEnd);
-  documentElement.addEventListener("touchstart", handleStart, { passive: true });
-  documentElement.addEventListener("touchend", handleEnd, { passive: false });
-  cleanups.current.push(() => {
-    documentElement.removeEventListener("pointerdown", handleStart);
-    documentElement.removeEventListener("pointerup", handleEnd);
-    documentElement.removeEventListener("touchstart", handleStart);
-    documentElement.removeEventListener("touchend", handleEnd);
-  });
+  const supportsPointerEvents = typeof documentElement.defaultView?.PointerEvent === "function";
+
+  if (supportsPointerEvents) {
+    documentElement.addEventListener("pointerdown", handleStart);
+    documentElement.addEventListener("pointerup", handleEnd);
+    cleanups.current.push(() => {
+      documentElement.removeEventListener("pointerdown", handleStart);
+      documentElement.removeEventListener("pointerup", handleEnd);
+    });
+  } else {
+    documentElement.addEventListener("touchstart", handleStart, { passive: true });
+    documentElement.addEventListener("touchend", handleEnd, { passive: false });
+    cleanups.current.push(() => {
+      documentElement.removeEventListener("touchstart", handleStart);
+      documentElement.removeEventListener("touchend", handleEnd);
+    });
+  }
 }
 
 function withTimeout<T>(promise: Promise<T>, label: string, timeoutMs = 20000) {
@@ -1085,6 +1095,9 @@ export function EpubReader({
   const contentKeyboardDocumentsRef = useRef<WeakSet<Document>>(new WeakSet());
   const contentGestureDocumentsRef = useRef<WeakSet<Document>>(new WeakSet());
   const contentKeyboardCleanupsRef = useRef<Array<() => void>>([]);
+  const pageTurnInFlightRef = useRef(false);
+  const lastPageTurnAtRef = useRef(0);
+  const pageTurnSettleTimerRef = useRef<number | null>(null);
   const [ready, setReady] = useState(false);
   const [loadError, setLoadError] = useState("");
   const [loadMessage, setLoadMessage] = useState("Loading EPUB");
@@ -1144,6 +1157,56 @@ export function EpubReader({
     stateEpubCfiRef.current = state.epubCfi;
   }, [state.epubCfi]);
 
+  const releasePageTurnAfterSettling = useCallback(() => {
+    if (pageTurnSettleTimerRef.current !== null) {
+      window.clearTimeout(pageTurnSettleTimerRef.current);
+    }
+
+    pageTurnSettleTimerRef.current = window.setTimeout(() => {
+      pageTurnInFlightRef.current = false;
+      pageTurnSettleTimerRef.current = null;
+    }, PAGE_TURN_DEDUP_MS);
+  }, []);
+
+  const turnPage = useCallback(
+    (direction: PageTurnDirection, source: PageTurnSource = "reader-command") => {
+      const rendition = renditionRef.current;
+      if (!rendition || destroyedRef.current) return;
+
+      const now = Date.now();
+      if (pageTurnInFlightRef.current || now - lastPageTurnAtRef.current < PAGE_TURN_DEDUP_MS) {
+        devLog("page-turn:ignored", { direction, source, reason: pageTurnInFlightRef.current ? "in-flight" : "dedupe" });
+        return;
+      }
+
+      pageTurnInFlightRef.current = true;
+      lastPageTurnAtRef.current = now;
+      devLog("page-turn:start", { direction, source });
+
+      const action = direction === "next" ? rendition.next?.() : rendition.prev?.();
+      Promise.resolve(action)
+        .then(() => {
+          if (destroyedRef.current) return;
+          window.requestAnimationFrame(() => {
+            if (!destroyedRef.current) {
+              safeCall(() => rendition.reportLocation?.());
+            }
+          });
+        })
+        .catch((error: unknown) => {
+          devError("page-turn:failed", error, { direction, source });
+        })
+        .finally(() => {
+          if (destroyedRef.current) {
+            pageTurnInFlightRef.current = false;
+            return;
+          }
+          releasePageTurnAfterSettling();
+        });
+    },
+    [releasePageTurnAfterSettling],
+  );
+
   useEffect(() => {
     const element = containerRef.current;
     if (!element) return;
@@ -1171,6 +1234,12 @@ export function EpubReader({
     contentKeyboardCleanupsRef.current.forEach((cleanup) => cleanup());
     contentKeyboardCleanupsRef.current = [];
     contentKeyboardDocumentsRef.current = new WeakSet();
+    contentGestureDocumentsRef.current = new WeakSet();
+    pageTurnInFlightRef.current = false;
+    if (pageTurnSettleTimerRef.current !== null) {
+      window.clearTimeout(pageTurnSettleTimerRef.current);
+      pageTurnSettleTimerRef.current = null;
+    }
 
     function reportStatus(status: ReaderLoadStatus) {
       if (cancelled || destroyedRef.current || failed) return;
@@ -1380,7 +1449,7 @@ export function EpubReader({
         rendition.hooks?.content?.register?.((contents: any) => {
           applyContentStyleToContent(contents, settingsRef.current);
           bindContentKeyboardShortcuts(contents, contentKeyboardDocumentsRef, contentKeyboardCleanupsRef);
-          bindContentPagingGestures(contents, rendition, settingsRef, contentGestureDocumentsRef, contentKeyboardCleanupsRef);
+          bindContentPagingGestures(contents, turnPage, settingsRef, contentGestureDocumentsRef, contentKeyboardCleanupsRef);
           const reportSelection = () => {
             const currentLocation = typeof rendition?.currentLocation === "function" ? rendition.currentLocation() : null;
             const cfi = currentLocation?.start?.cfi || lastCfi.current;
@@ -1525,7 +1594,10 @@ export function EpubReader({
 
         if (cancelled || destroyedRef.current || failed) return;
         const activeContents = typeof rendition?.getContents === "function" ? rendition.getContents() : [];
-        activeContents.forEach((content: any) => bindContentKeyboardShortcuts(content, contentKeyboardDocumentsRef, contentKeyboardCleanupsRef));
+        activeContents.forEach((content: any) => {
+          bindContentKeyboardShortcuts(content, contentKeyboardDocumentsRef, contentKeyboardCleanupsRef);
+          bindContentPagingGestures(content, turnPage, settingsRef, contentGestureDocumentsRef, contentKeyboardCleanupsRef);
+        });
 
         setReady(true);
         loadSettled = true;
@@ -1574,13 +1646,19 @@ export function EpubReader({
       contentKeyboardCleanupsRef.current.forEach((cleanup) => cleanup());
       contentKeyboardCleanupsRef.current = [];
       contentKeyboardDocumentsRef.current = new WeakSet();
+      contentGestureDocumentsRef.current = new WeakSet();
+      pageTurnInFlightRef.current = false;
+      if (pageTurnSettleTimerRef.current !== null) {
+        window.clearTimeout(pageTurnSettleTimerRef.current);
+        pageTurnSettleTimerRef.current = null;
+      }
       safeCall(() => renditionRef.current?.destroy?.());
       safeCall(() => bookRef.current?.destroy?.());
       renditionRef.current = null;
       bookRef.current = null;
       appliedAnnotationCfisRef.current = [];
     };
-  }, [fileUrl, onError, onLoadStatus, onLocationChange, onReadableTextChange, onSearchResults, onSearchStatus, onSelectionChange, onTocChange, retryKey]);
+  }, [fileUrl, onError, onLoadStatus, onLocationChange, onReadableTextChange, onSearchResults, onSearchStatus, onSelectionChange, onTocChange, retryKey, turnPage]);
 
   useEffect(() => {
     if (!ready || destroyedRef.current) return;
@@ -1633,11 +1711,11 @@ export function EpubReader({
     handledCommand.current = command.id;
     devLog("command", { type: command.type, locator: command.type === "goTo" ? command.locator : undefined });
     if (command.type === "next") {
-      void rendition.next?.();
+      turnPage("next", "reader-command");
       return;
     }
     if (command.type === "prev") {
-      void rendition.prev?.();
+      turnPage("prev", "reader-command");
       return;
     }
     if (command.type === "nextChapter" || command.type === "prevChapter") {
@@ -1684,7 +1762,7 @@ export function EpubReader({
         });
       });
     }
-  }, [command, ready]);
+  }, [command, ready, turnPage]);
 
   useEffect(() => {
     let cancelled = false;
