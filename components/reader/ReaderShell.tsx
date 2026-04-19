@@ -312,6 +312,7 @@ export function ReaderShell({ book }: ReaderShellProps) {
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [error, setError] = useState("");
   const [selection, setSelection] = useState<ReaderSelection | null>(null);
+  const [selectionUiMode, setSelectionUiMode] = useState<"desktop" | "mobile">("desktop");
   const [readableText, setReadableText] = useState<ReaderReadableText | null>(null);
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const voiceOptions = useMemo(() => createVoiceOptions(voices), [voices]);
@@ -326,7 +327,7 @@ export function ReaderShell({ book }: ReaderShellProps) {
   const progressPercent = Math.round((state.progress || 0) * 100);
   const currentLocator = useMemo(() => currentLocatorFor(book, state), [book, state]);
   const progressDisplay = formatReaderProgressDisplay(state.progressDisplay, state, book, toc);
-  const rootClassName = `reader-page theme-${state.theme}${state.immersiveMode ? " immersive" : ""}${state.showControls ? "" : " controls-hidden"}`;
+  const rootClassName = `reader-page theme-${state.theme} selection-ui-${selectionUiMode}${state.immersiveMode ? " immersive" : ""}${state.showControls ? "" : " controls-hidden"}`;
 
   const handleLoadStatus = useCallback(
     (status: ReaderLoadStatus) => {
@@ -356,6 +357,17 @@ export function ReaderShell({ book }: ReaderShellProps) {
   useEffect(() => {
     stateRef.current = state;
   }, [state]);
+
+  useEffect(() => {
+    const media = window.matchMedia("(hover: none), (pointer: coarse)");
+    const syncSelectionUiMode = () => {
+      setSelectionUiMode(media.matches ? "mobile" : "desktop");
+    };
+
+    syncSelectionUiMode();
+    media.addEventListener("change", syncSelectionUiMode);
+    return () => media.removeEventListener("change", syncSelectionUiMode);
+  }, []);
 
   const commandIdRef = useRef(0);
   const issueCommand = useCallback((nextCommand: ReaderCommandInput) => {
@@ -1274,15 +1286,17 @@ export function ReaderShell({ book }: ReaderShellProps) {
           ) : null}
           {selection ? (
             <>
-              <SelectionToolbar
-                selection={selection}
-                addAnnotation={addAnnotation}
-                copyQuote={copySelectionQuote}
-                openDictionary={openDictionary}
-                translateSelection={translateSelection}
-                clear={() => setSelection(null)}
-              />
-              <MobileSelectionActions selection={selection} addAnnotation={addAnnotation} copyQuote={copySelectionQuote} clear={() => setSelection(null)} />
+              {selectionUiMode === "desktop" ? (
+                <SelectionToolbar
+                  selection={selection}
+                  addAnnotation={addAnnotation}
+                  copyQuote={copySelectionQuote}
+                  openDictionary={openDictionary}
+                  translateSelection={translateSelection}
+                  clear={() => setSelection(null)}
+                />
+              ) : null}
+              {selectionUiMode === "mobile" ? <MobileSelectionActions selection={selection} addAnnotation={addAnnotation} copyQuote={copySelectionQuote} clear={() => setSelection(null)} /> : null}
             </>
           ) : null}
         </section>
