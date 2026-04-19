@@ -10,6 +10,7 @@ import { RuntimeNotice } from "@/components/RuntimeNotice";
 import { ShareButton } from "@/components/ShareButton";
 import { categoryLabel } from "@/lib/config";
 import { safeGetBookBySlug, safeGetRelatedBooks } from "@/lib/books";
+import { bookCoverImage, bookDescription, bookPageTitle, decodeRouteParam, SITE_NAME } from "@/lib/seo";
 import { bookFileAvailable } from "@/lib/storage";
 import { formatDate, formatFileSize } from "@/lib/text";
 
@@ -21,25 +22,62 @@ type BookPageProps = {
 
 export async function generateMetadata({ params }: BookPageProps): Promise<Metadata> {
   const { slug } = await params;
-  const result = await safeGetBookBySlug(decodeURIComponent(slug));
+  const result = await safeGetBookBySlug(decodeRouteParam(slug));
 
   if (!result.ok) {
-    return { title: "The Library is unavailable" };
+    return {
+      title: "The Library is unavailable",
+      robots: {
+        index: false,
+        follow: false,
+      },
+    };
   }
 
   if (!result.data) {
-    return { title: "Book not found" };
+    return {
+      title: "Book not found",
+      robots: {
+        index: false,
+        follow: false,
+      },
+    };
   }
 
+  const book = result.data;
+  const title = bookPageTitle(book);
+  const fullTitle = `${title} | ${SITE_NAME}`;
+  const description = bookDescription(book);
+  const canonical = `/books/${book.slug}`;
+  const coverImage = bookCoverImage(book);
+  const openGraphImages = coverImage ? [{ url: coverImage, alt: `Cover of ${book.title}` }] : undefined;
+
   return {
-    title: result.data.title,
-    description: result.data.description,
+    title,
+    description,
+    alternates: {
+      canonical,
+    },
+    openGraph: {
+      title: fullTitle,
+      description,
+      url: canonical,
+      siteName: SITE_NAME,
+      type: "article",
+      ...(openGraphImages ? { images: openGraphImages } : {}),
+    },
+    twitter: {
+      card: coverImage ? "summary_large_image" : "summary",
+      title: fullTitle,
+      description,
+      ...(coverImage ? { images: [coverImage] } : {}),
+    },
   };
 }
 
 export default async function BookPage({ params }: BookPageProps) {
   const { slug } = await params;
-  const bookResult = await safeGetBookBySlug(decodeURIComponent(slug));
+  const bookResult = await safeGetBookBySlug(decodeRouteParam(slug));
 
   if (!bookResult.ok) {
     return <RuntimeNotice failure={bookResult.error} title="This book could not load." />;

@@ -3,8 +3,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BookCard } from "@/components/library/BookCard";
 import { RuntimeNotice } from "@/components/RuntimeNotice";
-import { matchingAuthorForSlug } from "@/lib/authors";
+import { authorSlug, matchingAuthorForSlug } from "@/lib/authors";
 import { safeGetBooksByAuthorSlug } from "@/lib/books";
+import { authorDescription, decodeRouteParam, SITE_NAME } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
@@ -13,26 +14,59 @@ type AuthorPageProps = {
 };
 
 function decodeSlug(value: string) {
-  try {
-    return decodeURIComponent(value);
-  } catch {
-    return value;
-  }
+  return decodeRouteParam(value);
 }
 
 export async function generateMetadata({ params }: AuthorPageProps): Promise<Metadata> {
   const { slug } = await params;
-  const result = await safeGetBooksByAuthorSlug(decodeSlug(slug));
-  const books = result.ok ? result.data : [];
-  const author = books.map((book) => matchingAuthorForSlug(book, decodeSlug(slug))).find(Boolean);
+  const decodedSlug = decodeSlug(slug);
+  const result = await safeGetBooksByAuthorSlug(decodedSlug);
 
-  if (!author) {
-    return { title: "Author not found" };
+  if (!result.ok) {
+    return {
+      title: "The Library is unavailable",
+      robots: {
+        index: false,
+        follow: false,
+      },
+    };
   }
 
+  const books = result.ok ? result.data : [];
+  const author = books.map((book) => matchingAuthorForSlug(book, decodedSlug)).find(Boolean);
+
+  if (!author) {
+    return {
+      title: "Author not found",
+      robots: {
+        index: false,
+        follow: false,
+      },
+    };
+  }
+
+  const description = authorDescription(author);
+  const canonical = `/authors/${authorSlug(author)}`;
+  const fullTitle = `${author} | ${SITE_NAME}`;
+
   return {
-    title: `${author} books`,
-    description: `Books by ${author} in The Library.`,
+    title: author,
+    description,
+    alternates: {
+      canonical,
+    },
+    openGraph: {
+      title: fullTitle,
+      description,
+      url: canonical,
+      siteName: SITE_NAME,
+      type: "website",
+    },
+    twitter: {
+      card: "summary",
+      title: fullTitle,
+      description,
+    },
   };
 }
 
