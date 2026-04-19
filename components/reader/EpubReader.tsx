@@ -303,6 +303,25 @@ function bindContentPagingGestures(
     return { x: event.clientX, y: event.clientY };
   };
 
+  const visibleTapFrame = (pointX: number) => {
+    const frameElement = ((content?.iframe as HTMLElement | undefined) ?? documentElement.defaultView?.frameElement) as HTMLElement | null;
+    const frameRect = frameElement?.getBoundingClientRect();
+    const visibleElement = frameElement?.closest(".epub-container") ?? frameElement?.parentElement ?? null;
+    const visibleRect = visibleElement?.getBoundingClientRect();
+
+    if (frameRect && visibleRect?.width) {
+      return {
+        x: frameRect.left + pointX - visibleRect.left,
+        width: visibleRect.width,
+      };
+    }
+
+    return {
+      x: pointX,
+      width: documentElement.defaultView?.visualViewport?.width ?? documentElement.defaultView?.innerWidth ?? documentElement.documentElement.clientWidth,
+    };
+  };
+
   const pageTurn = (direction: PageTurnDirection) => {
     lastTurnAt = Date.now();
     turnPage(direction, "content-gesture");
@@ -331,7 +350,7 @@ function bindContentPagingGestures(
     const dx = point.x - currentStart.x;
     const dy = point.y - currentStart.y;
     const elapsed = Date.now() - currentStart.time;
-    const viewportWidth = documentElement.defaultView?.innerWidth ?? documentElement.documentElement.clientWidth;
+    const tapFrame = visibleTapFrame(point.x);
 
     if (settings.swipePaging && elapsed < 760 && Math.abs(dx) > 42 && Math.abs(dx) > Math.abs(dy) * 1.25) {
       event.preventDefault();
@@ -339,12 +358,13 @@ function bindContentPagingGestures(
       return;
     }
 
-    if (settings.tapZones && Math.abs(dx) < 12 && Math.abs(dy) < 12 && viewportWidth > 0) {
-      if (point.x < viewportWidth * 0.28) {
+    if (settings.tapZones && Math.abs(dx) < 12 && Math.abs(dy) < 12 && tapFrame.width > 0) {
+      if (tapFrame.x < tapFrame.width * 0.28) {
         event.preventDefault();
         pageTurn("prev");
+        return;
       }
-      if (point.x > viewportWidth * 0.72) {
+      if (tapFrame.x > tapFrame.width * 0.72) {
         event.preventDefault();
         pageTurn("next");
       }

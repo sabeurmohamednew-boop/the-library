@@ -1263,7 +1263,7 @@ export function ReaderShell({ book }: ReaderShellProps) {
           )}
           <div className={overlayVisible ? "reader-overlay visible" : "reader-overlay"}>{state.locationLabel || `${progressPercent}%`}</div>
           {state.layout === "paginated" && !panel && !selection ? (
-            <div className="mobile-page-turn-controls" aria-label="Page turn controls">
+            <div className={overlayVisible ? "mobile-page-turn-controls visible" : "mobile-page-turn-controls"} aria-label="Page turn controls">
               <button className="icon-button" type="button" onClick={() => issueCommand({ type: "prev" })} aria-label="Previous page">
                 <ChevronLeft size={18} aria-hidden="true" />
               </button>

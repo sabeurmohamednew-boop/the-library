@@ -5213,7 +5213,13 @@ kbd {
     align-items: center;
     justify-content: space-between;
     padding: 0 8px;
+    opacity: 0;
     pointer-events: none;
+    transition: opacity 180ms ease;
+  }
+
+  .mobile-page-turn-controls.visible {
+    opacity: 1;
   }
 
   .mobile-page-turn-controls .icon-button {
@@ -5223,9 +5229,13 @@ kbd {
     background: rgb(var(--card-rgb) / 0.58);
     color: var(--ink-muted);
     box-shadow: 0 6px 18px rgb(var(--shadow-rgb) / 0.1);
-    opacity: 0.78;
-    pointer-events: auto;
+    opacity: 0.72;
+    pointer-events: none;
     backdrop-filter: blur(10px);
+  }
+
+  .mobile-page-turn-controls.visible .icon-button {
+    pointer-events: auto;
   }
 
   .mobile-page-turn-controls .icon-button:active,
