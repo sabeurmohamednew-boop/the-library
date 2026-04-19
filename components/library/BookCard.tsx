@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { categoryLabel, TRUNCATION_LIMITS } from "@/lib/config";
 import { formatDate, truncateText } from "@/lib/text";
-import type { BookDTO } from "@/lib/types";
+import type { LibraryBookDTO } from "@/lib/types";
 import { AuthorLinks } from "@/components/library/AuthorLinks";
 import { BookActionLinks } from "@/components/library/BookActionLinks";
 import { BookCover } from "@/components/library/BookCover";
 
 type BookCardProps = {
-  book: BookDTO;
+  book: LibraryBookDTO;
   started?: boolean;
 };
 
@@ -20,7 +20,7 @@ export function BookCard({ book, started }: BookCardProps) {
       <Link className="cover-link" href={`/books/${book.slug}`} aria-label={`Open details for ${book.title}`} prefetch={false}>
         <span className="format-badge">{book.format}</span>
         {started ? <span className="resume-badge">Resume</span> : null}
-        <BookCover book={book} />
+        <BookCover book={{ slug: book.slug, title: book.title, format: book.format, coverBlobPath: book.coverBlobPath, updatedAt: book.updatedAt }} />
       </Link>
 
       <div className="book-card-body">
@@ -43,7 +43,7 @@ export function BookCard({ book, started }: BookCardProps) {
           <span>{categoryLabel(book.category)}</span>
         </div>
         <div className="card-actions">
-          <BookActionLinks book={book} />
+          <BookActionLinks book={{ slug: book.slug, title: book.title, format: book.format }} />
         </div>
       </div>
     </article>

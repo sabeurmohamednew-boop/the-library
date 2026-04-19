@@ -9,7 +9,7 @@ import { BookCover } from "@/components/library/BookCover";
 import { RuntimeNotice } from "@/components/RuntimeNotice";
 import { ShareButton } from "@/components/ShareButton";
 import { categoryLabel } from "@/lib/config";
-import { safeGetBookBySlug, safeGetRelatedBooks } from "@/lib/books";
+import { safeGetBookBySlug, safeGetRelatedLibraryBooks } from "@/lib/books";
 import { bookCoverImage, bookDescription, bookPageTitle, decodeRouteParam, SITE_NAME } from "@/lib/seo";
 import { bookFileAvailable } from "@/lib/storage";
 import { formatDate, formatFileSize } from "@/lib/text";
@@ -86,7 +86,7 @@ export default async function BookPage({ params }: BookPageProps) {
   const book = bookResult.data;
   if (!book) notFound();
 
-  const relatedResult = await safeGetRelatedBooks(book.slug);
+  const relatedResult = await safeGetRelatedLibraryBooks(book.slug);
   const relatedBooks = relatedResult.ok ? relatedResult.data : [];
   const fileAvailable = bookFileAvailable(book);
 
@@ -100,7 +100,7 @@ export default async function BookPage({ params }: BookPageProps) {
 
       <section className="details-grid" aria-labelledby="book-title">
         <div className="details-cover cover-frame">
-          <BookCover book={book} />
+          <BookCover book={{ slug: book.slug, title: book.title, format: book.format, coverBlobPath: book.coverBlobPath, updatedAt: book.updatedAt }} />
         </div>
 
         <div className="details-content">
@@ -122,7 +122,7 @@ export default async function BookPage({ params }: BookPageProps) {
           ) : null}
 
           <div className="action-row">
-            <BookActionLinks book={book} downloadClassName="button" />
+            <BookActionLinks book={{ slug: book.slug, title: book.title, format: book.format }} downloadClassName="button" />
             <BookBookmarkButton slug={book.slug} />
             <ShareButton />
           </div>

@@ -8,7 +8,7 @@ import { BOOK_CATEGORIES, BOOK_FORMATS, LIBRARY_PAGE_SIZE } from "@/lib/config";
 import { getReaderStatesForLibrary, loadBookmarkedSlugs } from "@/lib/clientStorage";
 import { authorPath, bookAuthors, buildAuthorRows } from "@/lib/authors";
 import { normalizeSearch } from "@/lib/text";
-import type { BookDTO, ReaderState } from "@/lib/types";
+import type { LibraryBookDTO, ReaderState } from "@/lib/types";
 import { AuthorLinks } from "@/components/library/AuthorLinks";
 import { BookCard } from "@/components/library/BookCard";
 import { BookCover } from "@/components/library/BookCover";
@@ -25,7 +25,7 @@ type SortMode =
   | "upload-asc";
 
 type LibraryClientProps = {
-  books: BookDTO[];
+  books: LibraryBookDTO[];
 };
 
 const useClientLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
@@ -143,7 +143,7 @@ export function LibraryClient({ books }: LibraryClientProps) {
     },
   }[view];
 
-  function resumeDetailFor(book: BookDTO) {
+  function resumeDetailFor(book: LibraryBookDTO) {
     const state = readerStates.get(book.slug);
     if (!state) return "";
     if (state.locationLabel) return state.locationLabel;
@@ -294,7 +294,7 @@ export function LibraryClient({ books }: LibraryClientProps) {
                     prefetch={false}
                     onClick={() => trackResumeClick(book, progress)}
                   >
-                    <BookCover book={book} />
+                    <BookCover book={{ slug: book.slug, title: book.title, format: book.format, coverBlobPath: book.coverBlobPath, updatedAt: book.updatedAt }} />
                   </Link>
                   <div className="continue-card-body">
                     <p className="continue-kicker">{book.format}</p>
@@ -397,7 +397,7 @@ export function LibraryClient({ books }: LibraryClientProps) {
           <div className="cover-grid">
             {visibleBooks.map((book) => (
               <Link key={book.slug} className="cover-link" href={`/books/${book.slug}`} aria-label={`Open details for ${book.title}`} prefetch={false}>
-                <BookCover book={book} />
+                <BookCover book={{ slug: book.slug, title: book.title, format: book.format, coverBlobPath: book.coverBlobPath, updatedAt: book.updatedAt }} />
               </Link>
             ))}
           </div>

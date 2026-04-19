@@ -1,4 +1,4 @@
-import type { BookDTO, ReaderAnnotation, ReaderBookmark, ReaderHighlightColor, ReaderLocator, ReaderState } from "@/lib/types";
+import type { ReaderAnnotation, ReaderBookDTO, ReaderBookmark, ReaderHighlightColor, ReaderLocator, ReaderState } from "@/lib/types";
 
 type ReaderExportShape = {
   book?: {
@@ -173,7 +173,7 @@ function importMessage(counts: ImportCounts) {
   return parts.join(" ");
 }
 
-function validateBookMatch(payload: ReaderExportShape, book: BookDTO): string | null {
+function validateBookMatch(payload: ReaderExportShape, book: ReaderBookDTO): string | null {
   if (!isRecord(payload.book)) return "This is not a reader notes export.";
 
   const importedSlug = typeof payload.book.slug === "string" ? payload.book.slug.trim() : "";
@@ -201,7 +201,7 @@ export function importReaderAnnotationsFromJson(
     currentState,
     makeId,
   }: {
-    book: BookDTO;
+    book: ReaderBookDTO;
     currentState: ReaderState;
     makeId: () => string;
   },

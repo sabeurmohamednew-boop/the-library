@@ -1,4 +1,4 @@
-import type { BookDTO, ReaderAnnotation, ReaderLocator, ReaderState, SearchResult, TocItem } from "@/lib/types";
+import type { ReaderAnnotation, ReaderBookDTO, ReaderLocator, ReaderState, SearchResult, TocItem } from "@/lib/types";
 
 export const READER_SHORTCUT_EVENT = "library-reader-shortcut";
 
@@ -44,7 +44,7 @@ export type ReaderLoadStatus = {
 };
 
 export type ReaderEngineProps = {
-  book: BookDTO;
+  book: ReaderBookDTO;
   fileUrl: string;
   state: ReaderState;
   annotations: ReaderAnnotation[];

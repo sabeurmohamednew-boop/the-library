@@ -2,32 +2,21 @@
 
 import Image from "next/image";
 import { useState } from "react";
-import type { BookDTO } from "@/lib/types";
+import type { BookCoverDTO } from "@/lib/types";
 
 type BookCoverProps = {
-  book: Pick<BookDTO, "slug" | "title" | "format"> & Partial<Pick<BookDTO, "coverBlobPath" | "coverBlobUrl" | "updatedAt">>;
+  book: BookCoverDTO;
   className?: string;
 };
 
-function directCoverUrl(value: string | null | undefined) {
-  if (!value) return "";
-
-  try {
-    const url = new URL(value);
-    return url.protocol === "https:" ? url.toString() : "";
-  } catch {
-    return "";
-  }
-}
-
 function coverApiSrc(book: BookCoverProps["book"]) {
-  const coverVersion = book.coverBlobPath || book.coverBlobUrl || book.updatedAt || "";
+  const coverVersion = book.coverBlobPath || book.updatedAt || "";
   const apiSrc = `/api/books/${book.slug}/cover`;
   return coverVersion ? `${apiSrc}?v=${encodeURIComponent(coverVersion)}` : apiSrc;
 }
 
 export function BookCover({ book, className }: BookCoverProps) {
-  const coverSrc = directCoverUrl(book.coverBlobUrl) || coverApiSrc(book);
+  const coverSrc = coverApiSrc(book);
   const [failedSrc, setFailedSrc] = useState<string | null>(null);
   const failed = failedSrc === coverSrc;
   const coverClassName = ["book-cover-image", className].filter(Boolean).join(" ");

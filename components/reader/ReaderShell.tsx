@@ -23,7 +23,7 @@ import { loadReaderState, saveReaderState, setBookBookmarked } from "@/lib/clien
 import { importReaderAnnotationsFromJson } from "@/lib/readerAnnotationImport";
 import { dictionaryLookupForSelection, translationUrlForSelection } from "@/lib/readerStudyTools";
 import { getClientTheme, readerThemeForGlobalTheme } from "@/lib/theme";
-import type { BookDTO, ReaderAnnotation, ReaderBookmark, ReaderHighlightColor, ReaderLocator, ReaderProgressDisplay, ReaderState, SearchResult, TocItem } from "@/lib/types";
+import type { ReaderAnnotation, ReaderBookmark, ReaderBookDTO, ReaderHighlightColor, ReaderLocator, ReaderProgressDisplay, ReaderState, SearchResult, TocItem } from "@/lib/types";
 import { ShareButton } from "@/components/ShareButton";
 import { ReaderErrorBoundary } from "@/components/reader/ReaderErrorBoundary";
 import { ReaderLoadingFrame } from "@/components/reader/ReaderLoadingState";
@@ -52,7 +52,7 @@ const EpubReader = dynamic<ReaderEngineProps>(() => import("@/components/reader/
 const useClientLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
 
 type ReaderShellProps = {
-  book: BookDTO;
+  book: ReaderBookDTO;
 };
 
 type Panel = "toc" | "bookmarks" | "annotations" | "settings" | "search" | "position" | "audio" | "info" | "menu" | null;
@@ -90,7 +90,7 @@ function createInitialState(slug: string, theme: ReaderState["theme"] = DEFAULT_
   };
 }
 
-function currentLocatorFor(book: BookDTO, state: ReaderState): ReaderLocator | null {
+function currentLocatorFor(book: ReaderBookDTO, state: ReaderState): ReaderLocator | null {
   if (book.format === "PDF") {
     return { type: "pdf-page", page: state.pdfPage ?? 1 };
   }
@@ -198,7 +198,7 @@ function minutesLabel(minutes: number) {
   return rest ? `${hours} hr ${rest} min` : `${hours} hr`;
 }
 
-function formatReaderProgressDisplay(display: ReaderProgressDisplay, state: ReaderState, book: BookDTO, toc: TocItem[]) {
+function formatReaderProgressDisplay(display: ReaderProgressDisplay, state: ReaderState, book: ReaderBookDTO, toc: TocItem[]) {
   if (display === "hidden") return "";
   if (display === "percentage") return progressLabel(state.progress || 0);
 
@@ -1516,8 +1516,8 @@ type ReaderPanelProps = {
   importStatus: ImportStatus;
   toggleFullscreen: () => Promise<void>;
   shareUrl: () => string;
-  bookFormat: BookDTO["format"];
-  book: BookDTO;
+  bookFormat: ReaderBookDTO["format"];
+  book: ReaderBookDTO;
   progressDisplay: string;
   readableText: ReaderReadableText | null;
   voiceOptions: VoiceOption[];
@@ -1918,7 +1918,7 @@ function PositionPanel({
   issueCommand,
 }: {
   state: ReaderState;
-  book: BookDTO;
+  book: ReaderBookDTO;
   progressDisplay: string;
   issueCommand: (command: ReaderCommandInput) => void;
 }) {
@@ -2054,7 +2054,7 @@ function BookInfoPanel({
   importReaderData,
   importStatus,
 }: {
-  book: BookDTO;
+  book: ReaderBookDTO;
   state: ReaderState;
   exportReaderData: () => void;
   importReaderData: (file: File) => Promise<void>;
@@ -2196,7 +2196,7 @@ function SettingsPanel({
 }: {
   state: ReaderState;
   updateState: (patch: Partial<ReaderState>) => void;
-  bookFormat: BookDTO["format"];
+  bookFormat: ReaderBookDTO["format"];
 }) {
   const [draftZoom, setDraftZoom] = useState(state.zoom);
   const [largeReaderScreen, setLargeReaderScreen] = useState(true);

@@ -31,6 +31,15 @@ export type BookDTO = {
   updatedAt: string;
 };
 
+export type BookCoverDTO = Pick<BookDTO, "slug" | "title" | "format"> & Partial<Pick<BookDTO, "coverBlobPath" | "updatedAt">>;
+
+export type LibraryBookDTO = Pick<
+  BookDTO,
+  "slug" | "title" | "description" | "author" | "authors" | "format" | "category" | "pageCount" | "publicationDate" | "uploadDate" | "coverBlobPath" | "updatedAt"
+>;
+
+export type ReaderBookDTO = Pick<BookDTO, "id" | "slug" | "title" | "author" | "format" | "pageCount">;
+
 export type ReaderTheme = "light" | "dark" | "sepia" | "black";
 export type ReaderLayout = "paginated" | "vertical";
 export type ReaderFont = "original" | "default" | "system" | "literata" | "merriweather";

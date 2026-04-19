@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { ReaderShell } from "@/components/reader/ReaderShell";
+import { ReaderShellClient } from "@/components/reader/ReaderShellClient";
 import { RuntimeNotice } from "@/components/RuntimeNotice";
-import { safeGetBookBySlug } from "@/lib/books";
+import { safeGetBookBySlug, safeGetReaderBookBySlug } from "@/lib/books";
 import { bookAuthorLabel, decodeRouteParam } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
@@ -31,7 +31,7 @@ export async function generateMetadata({ params }: ReaderPageProps): Promise<Met
 
 export default async function ReaderPage({ params }: ReaderPageProps) {
   const { slug } = await params;
-  const result = await safeGetBookBySlug(decodeRouteParam(slug));
+  const result = await safeGetReaderBookBySlug(decodeRouteParam(slug));
 
   if (!result.ok) {
     return <RuntimeNotice failure={result.error} title="The reader could not load." />;
@@ -40,5 +40,5 @@ export default async function ReaderPage({ params }: ReaderPageProps) {
   const book = result.data;
   if (!book) notFound();
 
-  return <ReaderShell book={book} />;
+  return <ReaderShellClient book={book} />;
 }
