@@ -282,6 +282,7 @@ function bindContentKeyboardShortcuts(
 function bindContentPagingGestures(
   content: any,
   turnPage: (direction: PageTurnDirection, source: PageTurnSource) => void,
+  onReadingSurfaceTap: (() => boolean) | undefined,
   settingsRef: { current: Pick<ReaderState, "layout" | "tapZones" | "swipePaging"> },
   boundDocuments: { current: WeakSet<Document> },
   cleanups: { current: Array<() => void> },
@@ -358,7 +359,13 @@ function bindContentPagingGestures(
       return;
     }
 
-    if (settings.tapZones && Math.abs(dx) < 12 && Math.abs(dy) < 12 && tapFrame.width > 0) {
+    const isShortTap = elapsed < 520 && Math.abs(dx) < 12 && Math.abs(dy) < 12;
+    if (isShortTap && onReadingSurfaceTap?.()) {
+      event.preventDefault();
+      return;
+    }
+
+    if (settings.tapZones && isShortTap && tapFrame.width > 0) {
       if (tapFrame.x < tapFrame.width * 0.28) {
         event.preventDefault();
         pageTurn("prev");
@@ -1100,6 +1107,7 @@ export function EpubReader({
   onLocationChange,
   onSelectionChange,
   onReadableTextChange,
+  onReadingSurfaceTap,
   onError,
   onLoadStatus,
 }: ReaderEngineProps) {
@@ -1115,6 +1123,7 @@ export function EpubReader({
   const contentKeyboardDocumentsRef = useRef<WeakSet<Document>>(new WeakSet());
   const contentGestureDocumentsRef = useRef<WeakSet<Document>>(new WeakSet());
   const contentKeyboardCleanupsRef = useRef<Array<() => void>>([]);
+  const onReadingSurfaceTapRef = useRef(onReadingSurfaceTap);
   const pageTurnInFlightRef = useRef(false);
   const lastPageTurnAtRef = useRef(0);
   const pageTurnSettleTimerRef = useRef<number | null>(null);
@@ -1172,6 +1181,10 @@ export function EpubReader({
   useEffect(() => {
     settingsRef.current = settings;
   }, [settings]);
+
+  useEffect(() => {
+    onReadingSurfaceTapRef.current = onReadingSurfaceTap;
+  }, [onReadingSurfaceTap]);
 
   useEffect(() => {
     stateEpubCfiRef.current = state.epubCfi;
@@ -1469,7 +1482,7 @@ export function EpubReader({
         rendition.hooks?.content?.register?.((contents: any) => {
           applyContentStyleToContent(contents, settingsRef.current);
           bindContentKeyboardShortcuts(contents, contentKeyboardDocumentsRef, contentKeyboardCleanupsRef);
-          bindContentPagingGestures(contents, turnPage, settingsRef, contentGestureDocumentsRef, contentKeyboardCleanupsRef);
+          bindContentPagingGestures(contents, turnPage, () => onReadingSurfaceTapRef.current?.() ?? false, settingsRef, contentGestureDocumentsRef, contentKeyboardCleanupsRef);
           const reportSelection = () => {
             const currentLocation = typeof rendition?.currentLocation === "function" ? rendition.currentLocation() : null;
             const cfi = currentLocation?.start?.cfi || lastCfi.current;
@@ -1616,7 +1629,7 @@ export function EpubReader({
         const activeContents = typeof rendition?.getContents === "function" ? rendition.getContents() : [];
         activeContents.forEach((content: any) => {
           bindContentKeyboardShortcuts(content, contentKeyboardDocumentsRef, contentKeyboardCleanupsRef);
-          bindContentPagingGestures(content, turnPage, settingsRef, contentGestureDocumentsRef, contentKeyboardCleanupsRef);
+          bindContentPagingGestures(content, turnPage, () => onReadingSurfaceTapRef.current?.() ?? false, settingsRef, contentGestureDocumentsRef, contentKeyboardCleanupsRef);
         });
 
         setReady(true);

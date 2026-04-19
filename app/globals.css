@@ -4950,6 +4950,18 @@ kbd {
   opacity: 1;
 }
 
+.reader-page.controls-revealed .reader-topbar {
+  transform: translateY(0);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.reader-page.controls-revealed .reader-progress-wrap {
+  transform: translateY(0);
+  opacity: 1;
+  pointer-events: auto;
+}
+
 .reader-panel {
   border-left-color: rgb(var(--border-rgb) / 0.72);
   background: rgb(var(--card-rgb) / 0.98);

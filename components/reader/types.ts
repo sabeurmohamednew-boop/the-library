@@ -56,6 +56,7 @@ export type ReaderEngineProps = {
   onLocationChange: (update: { locator: ReaderLocator; progress: number; label: string }) => void;
   onSelectionChange: (selection: ReaderSelection | null) => void;
   onReadableTextChange: (text: ReaderReadableText | null) => void;
+  onReadingSurfaceTap?: () => boolean;
   onError: (message: string) => void;
   onLoadStatus: (status: ReaderLoadStatus) => void;
 };

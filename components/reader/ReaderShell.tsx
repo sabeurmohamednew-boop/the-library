@@ -292,6 +292,8 @@ export function ReaderShell({ book }: ReaderShellProps) {
   const pendingWheelZoom = useRef<number | null>(null);
   const readerOpenedTrackedRef = useRef(false);
   const pointerStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
+  const controlsRevealTimer = useRef<number | null>(null);
+  const controlsRevealedRef = useRef(false);
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const speechSessionIdRef = useRef(0);
   const speechTextRef = useRef("");
@@ -309,6 +311,7 @@ export function ReaderShell({ book }: ReaderShellProps) {
   const [importStatus, setImportStatus] = useState<ImportStatus>(null);
   const [engineStatus, setEngineStatus] = useState<ReaderLoadStatus>({ phase: "idle", message: "Preparing reader" });
   const [overlayVisible, setOverlayVisible] = useState(false);
+  const [controlsRevealed, setControlsRevealed] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [error, setError] = useState("");
   const [selection, setSelection] = useState<ReaderSelection | null>(null);
@@ -327,7 +330,7 @@ export function ReaderShell({ book }: ReaderShellProps) {
   const progressPercent = Math.round((state.progress || 0) * 100);
   const currentLocator = useMemo(() => currentLocatorFor(book, state), [book, state]);
   const progressDisplay = formatReaderProgressDisplay(state.progressDisplay, state, book, toc);
-  const rootClassName = `reader-page theme-${state.theme} selection-ui-${selectionUiMode}${state.immersiveMode ? " immersive" : ""}${state.showControls ? "" : " controls-hidden"}`;
+  const rootClassName = `reader-page theme-${state.theme} selection-ui-${selectionUiMode}${state.immersiveMode ? " immersive" : ""}${controlsRevealed ? " controls-revealed" : ""}${state.showControls ? "" : " controls-hidden"}`;
 
   const handleLoadStatus = useCallback(
     (status: ReaderLoadStatus) => {
@@ -359,6 +362,10 @@ export function ReaderShell({ book }: ReaderShellProps) {
   }, [state]);
 
   useEffect(() => {
+    controlsRevealedRef.current = controlsRevealed;
+  }, [controlsRevealed]);
+
+  useEffect(() => {
     const media = window.matchMedia("(hover: none), (pointer: coarse)");
     const syncSelectionUiMode = () => {
       setSelectionUiMode(media.matches ? "mobile" : "desktop");
@@ -368,6 +375,33 @@ export function ReaderShell({ book }: ReaderShellProps) {
     media.addEventListener("change", syncSelectionUiMode);
     return () => media.removeEventListener("change", syncSelectionUiMode);
   }, []);
+
+  const hideRevealedControls = useCallback(() => {
+    if (controlsRevealTimer.current !== null) {
+      window.clearTimeout(controlsRevealTimer.current);
+      controlsRevealTimer.current = null;
+    }
+    setControlsRevealed(false);
+  }, []);
+
+  const revealImmersiveControls = useCallback(() => {
+    if (selectionUiMode !== "mobile" || !stateRef.current.immersiveMode) return false;
+
+    const wasRevealed = controlsRevealedRef.current;
+    if (controlsRevealTimer.current !== null) {
+      window.clearTimeout(controlsRevealTimer.current);
+    }
+
+    controlsRevealedRef.current = true;
+    setControlsRevealed(true);
+    controlsRevealTimer.current = window.setTimeout(() => {
+      controlsRevealTimer.current = null;
+      controlsRevealedRef.current = false;
+      setControlsRevealed(false);
+    }, 6500);
+
+    return !wasRevealed;
+  }, [selectionUiMode]);
 
   const commandIdRef = useRef(0);
   const issueCommand = useCallback((nextCommand: ReaderCommandInput) => {
@@ -845,8 +879,15 @@ export function ReaderShell({ book }: ReaderShellProps) {
   useEffect(() => {
     return () => {
       if (overlayTimer.current) window.clearTimeout(overlayTimer.current);
+      if (controlsRevealTimer.current) window.clearTimeout(controlsRevealTimer.current);
     };
   }, []);
+
+  useEffect(() => {
+    if (!state.immersiveMode) {
+      hideRevealedControls();
+    }
+  }, [hideRevealedControls, state.immersiveMode]);
 
   useEffect(() => {
     const element = rootRef.current;
@@ -930,7 +971,10 @@ export function ReaderShell({ book }: ReaderShellProps) {
         return;
       }
 
-      if (state.tapZones && state.layout === "paginated" && Math.abs(dx) < 12 && Math.abs(dy) < 12) {
+      const isShortTap = elapsed < 520 && Math.abs(dx) < 12 && Math.abs(dy) < 12;
+      if (isShortTap && revealImmersiveControls()) return;
+
+      if (state.tapZones && state.layout === "paginated" && isShortTap) {
         const x = event.clientX - rect.left;
         const edgeWidth = isNarrowScreen ? 0.28 : 0.24;
         if (x < rect.width * edgeWidth) issueCommand({ type: "prev" });
@@ -944,7 +988,7 @@ export function ReaderShell({ book }: ReaderShellProps) {
       stageElement.removeEventListener("pointerdown", handlePointerDown);
       stageElement.removeEventListener("pointerup", handlePointerUp);
     };
-  }, [issueCommand, panel, state.layout, state.swipePaging, state.tapZones]);
+  }, [issueCommand, panel, revealImmersiveControls, state.layout, state.swipePaging, state.tapZones]);
 
   useEffect(() => {
     const supported = "speechSynthesis" in window && "SpeechSynthesisUtterance" in window;
@@ -1268,6 +1312,7 @@ export function ReaderShell({ book }: ReaderShellProps) {
                 onLocationChange={handleLocationChange}
                 onSelectionChange={handleSelectionChange}
                 onReadableTextChange={handleReadableTextChange}
+                onReadingSurfaceTap={revealImmersiveControls}
                 onError={setError}
                 onLoadStatus={handleLoadStatus}
               />
