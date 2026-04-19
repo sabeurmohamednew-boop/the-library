@@ -1499,6 +1499,7 @@ export function EpubReader({
           const contentDocument = contents?.document as Document | undefined;
           const contentWindow = contentDocument?.defaultView;
           let selectionTimer: number | null = null;
+          const delayedSelectionTimers = new Set<number>();
           const scheduleSelectionReport = (delay = 0) => {
             if (!contentWindow) return;
             if (selectionTimer !== null) contentWindow.clearTimeout(selectionTimer);
@@ -1507,19 +1508,35 @@ export function EpubReader({
               reportSelection();
             }, delay);
           };
+          const queueSelectionReport = (delay: number) => {
+            if (!contentWindow) return;
+            const timer = contentWindow.setTimeout(() => {
+              delayedSelectionTimers.delete(timer);
+              reportSelection();
+            }, delay);
+            delayedSelectionTimers.add(timer);
+          };
           const reportSoon = () => scheduleSelectionReport(0);
           const reportAfterSelectionSettles = () => scheduleSelectionReport(120);
-          const reportAfterTouchSelection = () => scheduleSelectionReport(240);
+          const reportAfterTouchSelection = () => {
+            scheduleSelectionReport(240);
+            queueSelectionReport(650);
+            queueSelectionReport(1100);
+          };
           contentDocument?.addEventListener("selectionchange", reportAfterSelectionSettles);
           contentDocument?.addEventListener("mouseup", reportSoon);
           contentDocument?.addEventListener("keyup", reportSoon);
+          contentDocument?.addEventListener("pointerup", reportAfterTouchSelection);
           contentDocument?.addEventListener("touchend", reportAfterTouchSelection);
           contentKeyboardCleanupsRef.current.push(() => {
             contentDocument?.removeEventListener("selectionchange", reportAfterSelectionSettles);
             contentDocument?.removeEventListener("mouseup", reportSoon);
             contentDocument?.removeEventListener("keyup", reportSoon);
+            contentDocument?.removeEventListener("pointerup", reportAfterTouchSelection);
             contentDocument?.removeEventListener("touchend", reportAfterTouchSelection);
             if (selectionTimer !== null) contentWindow?.clearTimeout(selectionTimer);
+            delayedSelectionTimers.forEach((timer) => contentWindow?.clearTimeout(timer));
+            delayedSelectionTimers.clear();
           });
         });
 

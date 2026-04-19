@@ -245,10 +245,18 @@ function highlightColorLabel(color: ReaderHighlightColor) {
   }
 }
 
+const SPEECH_CHUNK_WORDS = 120;
+const SPEECH_START_TIMEOUT_MS = 5000;
+
 function voiceBaseId(voice: SpeechSynthesisVoice, index: number) {
   const uri = (voice.voiceURI ?? "").trim();
   if (uri) return uri;
   return [(voice.name ?? "").trim() || "voice", (voice.lang ?? "").trim() || "unknown", voice.localService ? "local" : "remote", voice.default ? "default" : "option", index].join("|");
+}
+
+function voiceIndexedId(voice: SpeechSynthesisVoice, index: number) {
+  const uri = (voice.voiceURI ?? "").trim();
+  return [uri || (voice.name ?? "").trim() || "voice", (voice.lang ?? "").trim() || "unknown", voice.localService ? "local" : "remote", voice.default ? "default" : "option", index].join("|");
 }
 
 function voiceLabel(voice: SpeechSynthesisVoice) {
@@ -262,11 +270,10 @@ function createVoiceOptions(voices: SpeechSynthesisVoice[]): VoiceOption[] {
 
   return voices.map((voice, index) => {
     const baseId = baseIds[index];
-    const needsIndex = (counts.get(baseId) ?? 0) > 1;
-    const id = needsIndex ? `${baseId}|${index}` : baseId;
+    const id = (counts.get(baseId) ?? 0) > 1 ? voiceIndexedId(voice, index) : baseId;
     return {
       id,
-      key: `${id}|${index}`,
+      key: voiceIndexedId(voice, index),
       label: voiceLabel(voice),
       voice,
     };
@@ -366,14 +373,17 @@ export function ReaderShell({ book }: ReaderShellProps) {
   }, [controlsRevealed]);
 
   useEffect(() => {
-    const media = window.matchMedia("(hover: none), (pointer: coarse)");
+    const hoverNoneMedia = window.matchMedia("(hover: none)");
+    const coarsePointerMedia = window.matchMedia("(pointer: coarse)");
+    const tabletTouchMedia = window.matchMedia("(any-pointer: coarse) and (max-width: 1180px)");
     const syncSelectionUiMode = () => {
-      setSelectionUiMode(media.matches ? "mobile" : "desktop");
+      setSelectionUiMode(hoverNoneMedia.matches || coarsePointerMedia.matches || tabletTouchMedia.matches ? "mobile" : "desktop");
     };
 
     syncSelectionUiMode();
-    media.addEventListener("change", syncSelectionUiMode);
-    return () => media.removeEventListener("change", syncSelectionUiMode);
+    const mediaLists = [hoverNoneMedia, coarsePointerMedia, tabletTouchMedia];
+    mediaLists.forEach((media) => media.addEventListener("change", syncSelectionUiMode));
+    return () => mediaLists.forEach((media) => media.removeEventListener("change", syncSelectionUiMode));
   }, []);
 
   const hideRevealedControls = useCallback(() => {
@@ -1001,12 +1011,18 @@ export function ReaderShell({ book }: ReaderShellProps) {
 
     setSpeechSupport("supported");
 
-    const loadVoices = () => setVoices(window.speechSynthesis.getVoices());
+    const loadVoices = () => {
+      setVoices(window.speechSynthesis.getVoices());
+    };
     loadVoices();
     window.speechSynthesis.addEventListener("voiceschanged", loadVoices);
-    const timers = [window.setTimeout(loadVoices, 250), window.setTimeout(loadVoices, 1000)];
+    window.speechSynthesis.onvoiceschanged = loadVoices;
+    const timers = [window.setTimeout(loadVoices, 100), window.setTimeout(loadVoices, 500), window.setTimeout(loadVoices, 1500), window.setTimeout(loadVoices, 3000)];
     return () => {
       window.speechSynthesis.removeEventListener("voiceschanged", loadVoices);
+      if (window.speechSynthesis.onvoiceschanged === loadVoices) {
+        window.speechSynthesis.onvoiceschanged = null;
+      }
       timers.forEach((timer) => window.clearTimeout(timer));
     };
   }, []);
@@ -1038,15 +1054,17 @@ export function ReaderShell({ book }: ReaderShellProps) {
       const cleanedText = cleanQuote(text, 20000);
       const words = cleanedText.split(/\s+/).filter(Boolean);
       const nextStartWord = Math.round(clampNumber(startWord, 0, words.length));
-      const nextText = words.slice(nextStartWord).join(" ");
       const speech = window.speechSynthesis;
       const sessionId = speechSessionIdRef.current + 1;
       speechSessionIdRef.current = sessionId;
+      const refreshedVoices = speech.getVoices();
+      const currentVoiceOptions = refreshedVoices.length ? createVoiceOptions(refreshedVoices) : voiceOptions;
+      if (refreshedVoices.length) setVoices(refreshedVoices);
+      const voiceOption = options.voiceId ? resolveVoiceOption(currentVoiceOptions, options.voiceId) : resolveVoiceOption(currentVoiceOptions, state.readAloudVoiceURI);
+      const rate = clampNumber(options.rate ?? state.readAloudRate, 0.5, 2);
+      const shouldCancelActiveSpeech = Boolean(utteranceRef.current || speech.speaking || speech.pending || speech.paused);
 
-      speech.cancel();
-      if (speech.paused) speech.resume();
-
-      if (!nextText) {
+      if (nextStartWord >= words.length) {
         utteranceRef.current = null;
         speechTextRef.current = "";
         speechWordIndexRef.current = 0;
@@ -1056,59 +1074,132 @@ export function ReaderShell({ book }: ReaderShellProps) {
         return;
       }
 
-      const utterance = new SpeechSynthesisUtterance(nextText);
-      const voiceOption = options.voiceId ? resolveVoiceOption(voiceOptions, options.voiceId) : selectedVoiceOption;
-      if (voiceOption?.voice) utterance.voice = voiceOption.voice;
-      utterance.rate = clampNumber(options.rate ?? state.readAloudRate, 0.5, 2);
-      utterance.onstart = () => {
-        if (speechSessionIdRef.current !== sessionId) return;
-        setReadAloudStatus(null);
-        setSpeaking(true);
-        if (!options.startPaused) setSpeechPaused(false);
-      };
-      utterance.onboundary = (event) => {
-        if (speechSessionIdRef.current !== sessionId) return;
-        if (event.name !== "word") return;
-        const spoken = nextText.slice(0, event.charIndex).trim().split(/\s+/).filter(Boolean).length;
-        speechWordIndexRef.current = nextStartWord + spoken;
-      };
-      utterance.onend = () => {
-        if (speechSessionIdRef.current !== sessionId) return;
-        utteranceRef.current = null;
-        speechTextRef.current = "";
-        speechWordIndexRef.current = 0;
-        setSpeaking(false);
-        setSpeechPaused(false);
-        if (state.readAloudAutoTurn) {
-          issueCommand({ type: "next" });
+      let startTimer: number | null = null;
+      const clearStartTimer = () => {
+        if (startTimer !== null) {
+          window.clearTimeout(startTimer);
+          startTimer = null;
         }
       };
-      utterance.onerror = () => {
+      const failSpeechStart = (message = "Read aloud could not start on this device.") => {
         if (speechSessionIdRef.current !== sessionId) return;
+        clearStartTimer();
         utteranceRef.current = null;
         speechTextRef.current = "";
         speechWordIndexRef.current = 0;
         setSpeaking(false);
         setSpeechPaused(false);
-        setReadAloudStatus({ tone: "error", message: "Read aloud could not start on this device." });
+        setReadAloudStatus({ tone: "error", message });
       };
-      utteranceRef.current = utterance;
+
       speechTextRef.current = cleanedText;
       speechWordIndexRef.current = nextStartWord;
       setSpeaking(true);
       setSpeechPaused(Boolean(options.startPaused));
-      speech.speak(utterance);
-      if (options.startPaused) {
-        speech.pause();
-        window.setTimeout(() => {
-          if (speechSessionIdRef.current === sessionId && utteranceRef.current === utterance && speech.speaking) {
-            speech.pause();
-            setSpeechPaused(true);
+      setReadAloudStatus({ tone: "info", message: "Starting read aloud..." });
+
+      const speakChunk = (chunkStartWord: number) => {
+        if (speechSessionIdRef.current !== sessionId) return;
+
+        const chunkStart = Math.round(clampNumber(chunkStartWord, 0, words.length));
+        const chunkEnd = Math.min(words.length, chunkStart + SPEECH_CHUNK_WORDS);
+        const chunkText = words.slice(chunkStart, chunkEnd).join(" ");
+
+        if (!chunkText) {
+          failSpeechStart("There is no readable text here yet.");
+          return;
+        }
+
+        const utterance = new SpeechSynthesisUtterance(chunkText);
+        if (voiceOption?.voice) utterance.voice = voiceOption.voice;
+        utterance.lang = voiceOption?.voice.lang || window.navigator.language || "en-US";
+        utterance.rate = rate;
+        utterance.pitch = 1;
+        utterance.volume = 1;
+        utterance.onstart = () => {
+          if (speechSessionIdRef.current !== sessionId) return;
+          clearStartTimer();
+          setReadAloudStatus(null);
+          setSpeaking(true);
+          if (!options.startPaused) setSpeechPaused(false);
+        };
+        utterance.onboundary = (event) => {
+          if (speechSessionIdRef.current !== sessionId) return;
+          if (event.name !== "word") return;
+          const spoken = chunkText.slice(0, event.charIndex).trim().split(/\s+/).filter(Boolean).length;
+          speechWordIndexRef.current = chunkStart + spoken;
+        };
+        utterance.onend = () => {
+          if (speechSessionIdRef.current !== sessionId) return;
+          clearStartTimer();
+          speechWordIndexRef.current = chunkEnd;
+
+          if (chunkEnd < words.length) {
+            window.setTimeout(() => speakChunk(chunkEnd), 25);
+            return;
           }
-        }, 0);
+
+          utteranceRef.current = null;
+          speechTextRef.current = "";
+          speechWordIndexRef.current = 0;
+          setSpeaking(false);
+          setSpeechPaused(false);
+          if (state.readAloudAutoTurn) {
+            issueCommand({ type: "next" });
+          }
+        };
+        utterance.onerror = (event) => {
+          if (speechSessionIdRef.current !== sessionId) return;
+          clearStartTimer();
+          const errorName = "error" in event && event.error ? String(event.error) : "";
+          failSpeechStart(errorName ? `Read aloud could not start on this device (${errorName}).` : "Read aloud could not start on this device.");
+        };
+
+        utteranceRef.current = utterance;
+        speechWordIndexRef.current = chunkStart;
+
+        try {
+          speech.speak(utterance);
+        } catch {
+          failSpeechStart("Read aloud could not start on this device.");
+          return;
+        }
+
+        if (!options.startPaused) {
+          startTimer = window.setTimeout(() => {
+            if (speechSessionIdRef.current !== sessionId || utteranceRef.current !== utterance) return;
+            if (!speech.speaking && !speech.pending) {
+              failSpeechStart("Read aloud could not start on this device.");
+            }
+          }, SPEECH_START_TIMEOUT_MS);
+        }
+
+        if (options.startPaused) {
+          speech.pause();
+          window.setTimeout(() => {
+            if (speechSessionIdRef.current === sessionId && utteranceRef.current === utterance && speech.speaking) {
+              speech.pause();
+              setSpeechPaused(true);
+            }
+          }, 0);
+        }
+      };
+
+      const startSpeech = () => {
+        if (speechSessionIdRef.current !== sessionId) return;
+        if (speech.paused && !options.startPaused) speech.resume();
+        speakChunk(nextStartWord);
+      };
+
+      if (shouldCancelActiveSpeech) {
+        speech.cancel();
+        window.setTimeout(startSpeech, 60);
+        return;
       }
+
+      startSpeech();
     },
-    [issueCommand, selectedVoiceOption, state.readAloudAutoTurn, state.readAloudRate, voiceOptions],
+    [issueCommand, state.readAloudAutoTurn, state.readAloudRate, state.readAloudVoiceURI, voiceOptions],
   );
 
   const toggleReadAloud = useCallback(() => {

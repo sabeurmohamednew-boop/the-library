@@ -1239,6 +1239,7 @@ export function PdfReader({
 
     let frame: number | null = null;
     let timer: number | null = null;
+    const delayedSelectionTimers = new Set<number>();
     const reportSelection = () => {
       if (frame !== null) window.cancelAnimationFrame(frame);
       frame = window.requestAnimationFrame(() => {
@@ -1253,19 +1254,34 @@ export function PdfReader({
         reportSelection();
       }, delay);
     };
+    const queueSelectionReport = (delay: number) => {
+      const nextTimer = window.setTimeout(() => {
+        delayedSelectionTimers.delete(nextTimer);
+        reportSelection();
+      }, delay);
+      delayedSelectionTimers.add(nextTimer);
+    };
     const reportSoon = () => scheduleSelectionReport(0);
     const reportAfterSelectionSettles = () => scheduleSelectionReport(120);
-    const reportAfterTouchSelection = () => scheduleSelectionReport(240);
+    const reportAfterTouchSelection = () => {
+      scheduleSelectionReport(240);
+      queueSelectionReport(650);
+      queueSelectionReport(1100);
+    };
 
     document.addEventListener("selectionchange", reportAfterSelectionSettles);
     document.addEventListener("mouseup", reportSoon);
     document.addEventListener("keyup", reportSoon);
+    document.addEventListener("pointerup", reportAfterTouchSelection);
     document.addEventListener("touchend", reportAfterTouchSelection);
     return () => {
       document.removeEventListener("selectionchange", reportAfterSelectionSettles);
       document.removeEventListener("mouseup", reportSoon);
       document.removeEventListener("keyup", reportSoon);
+      document.removeEventListener("pointerup", reportAfterTouchSelection);
       document.removeEventListener("touchend", reportAfterTouchSelection);
+      delayedSelectionTimers.forEach((nextTimer) => window.clearTimeout(nextTimer));
+      delayedSelectionTimers.clear();
       if (timer !== null) window.clearTimeout(timer);
       if (frame !== null) window.cancelAnimationFrame(frame);
     };
