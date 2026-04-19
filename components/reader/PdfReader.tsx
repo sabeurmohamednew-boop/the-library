@@ -9,8 +9,8 @@ import {
   type PDFDocumentProxy,
   type PDFPageProxy,
 } from "pdfjs-dist";
-import type { ReaderEngineProps, ReaderSearchStatus } from "@/components/reader/types";
-import type { ReaderLocator, SearchResult, TocItem } from "@/lib/types";
+import type { ReaderEngineProps, ReaderSearchStatus, ReaderSelection } from "@/components/reader/types";
+import type { ReaderAnnotation, ReaderLocator, SearchResult, TocItem } from "@/lib/types";
 import { ReaderFailure } from "@/components/reader/ReaderFailure";
 import { ReaderLoadingFrame } from "@/components/reader/ReaderLoadingState";
 
@@ -237,6 +237,7 @@ type PdfPageViewProps = {
   pageNumber: number;
   scale: number;
   searchQuery: string;
+  annotations: ReaderAnnotation[];
   outlineTargets: OutlineTarget[];
   observeVisibility: boolean;
   onVisible: (page: number) => void;
@@ -402,6 +403,84 @@ function installSearchHighlights(
   };
 }
 
+function installUserAnnotationHighlights(
+  highlightLayerElement: HTMLDivElement,
+  textLayerElement: HTMLDivElement,
+  textDivs: HTMLElement[],
+  textItems: string[],
+  annotations: ReaderAnnotation[],
+) {
+  if (annotations.length === 0) return () => undefined;
+
+  const pieces: { div: HTMLElement; text: string; start: number; end: number }[] = [];
+  let searchableText = "";
+
+  textItems.forEach((text, index) => {
+    const value = text ?? "";
+    const div = textDivs[index];
+    if (!value || !div) return;
+
+    if (searchableText.length > 0) searchableText += " ";
+    const start = searchableText.length;
+    searchableText += value.toLowerCase();
+    pieces.push({ div, text: value, start, end: searchableText.length });
+  });
+
+  const marks: HTMLSpanElement[] = [];
+  const frame = window.requestAnimationFrame(() => {
+    if (!textLayerElement.isConnected || !highlightLayerElement.isConnected) return;
+    const overlayRect = highlightLayerElement.getBoundingClientRect();
+
+    annotations.forEach((annotation) => {
+      const normalizedQuote = normalizeSearchText(annotation.quote).slice(0, 160);
+      const query = normalizedQuote.length > 8 ? normalizedQuote : normalizeSearchText(annotation.quote);
+      if (query.length < 2) return;
+
+      const matchStart = searchableText.indexOf(query);
+      if (matchStart < 0) return;
+      const matchEnd = matchStart + query.length;
+
+      pieces.forEach((piece) => {
+        if (piece.end <= matchStart || piece.start >= matchEnd) return;
+        const node = Array.from(piece.div.childNodes).find((child) => child.nodeType === Node.TEXT_NODE);
+        if (!node?.textContent) return;
+
+        const startOffset = clamp(matchStart - piece.start, 0, node.textContent.length);
+        const endOffset = clamp(matchEnd - piece.start, 0, node.textContent.length);
+        if (endOffset <= startOffset) return;
+
+        const range = document.createRange();
+        range.setStart(node, startOffset);
+        range.setEnd(node, endOffset);
+
+        Array.from(range.getClientRects()).forEach((rect) => {
+          if (rect.width <= 0 || rect.height <= 0) return;
+          const left = clamp(rect.left - overlayRect.left, 0, overlayRect.width);
+          const right = clamp(rect.right - overlayRect.left, 0, overlayRect.width);
+          const top = clamp(rect.top - overlayRect.top, 0, overlayRect.height);
+          const bottom = clamp(rect.bottom - overlayRect.top, 0, overlayRect.height);
+          if (right <= left || bottom <= top) return;
+          const mark = document.createElement("span");
+          mark.className = `pdf-user-mark color-${annotation.color}`;
+          mark.style.left = `${left}px`;
+          mark.style.top = `${top}px`;
+          mark.style.width = `${right - left}px`;
+          mark.style.height = `${bottom - top}px`;
+          highlightLayerElement.appendChild(mark);
+          marks.push(mark);
+        });
+
+        range.detach();
+      });
+    });
+  });
+
+  return () => {
+    window.cancelAnimationFrame(frame);
+    marks.forEach((mark) => mark.remove());
+  };
+}
+
 function installSelectionSmoother(selectionLayerElement: HTMLDivElement, textLayerElement: HTMLDivElement) {
   let fills: HTMLSpanElement[] = [];
   let frame: number | null = null;
@@ -504,11 +583,43 @@ function installSelectionSmoother(selectionLayerElement: HTMLDivElement, textLay
   };
 }
 
+function elementFromSelection(selection: Selection) {
+  if (selection.rangeCount === 0) return null;
+  const node = selection.getRangeAt(0).commonAncestorContainer;
+  return node.nodeType === Node.ELEMENT_NODE ? (node as Element) : node.parentElement;
+}
+
+function pdfSelectionFromDocument(pageCount: number): ReaderSelection | null {
+  const selection = window.getSelection();
+  if (!selection || selection.isCollapsed || selection.rangeCount === 0) return null;
+
+  const text = selection.toString().replace(/\s+/g, " ").trim().slice(0, 4000);
+  if (!text) return null;
+
+  const element = elementFromSelection(selection);
+  const pageShell = element?.closest<HTMLElement>("[data-pdf-page]");
+  if (!pageShell || !element?.closest(".pdf-text-layer")) return null;
+
+  const page = Number(pageShell.dataset.pdfPage);
+  if (!Number.isFinite(page) || page < 1) return null;
+
+  const safePage = clamp(Math.round(page), 1, Math.max(1, pageCount));
+  const progress = pageCount <= 1 ? 1 : (safePage - 1) / (pageCount - 1);
+
+  return {
+    text,
+    locator: { type: "pdf-page", page: safePage },
+    progress,
+    label: `Page ${safePage} of ${pageCount}`,
+  };
+}
+
 function PdfPageView({
   pdf,
   pageNumber,
   scale,
   searchQuery,
+  annotations,
   outlineTargets,
   observeVisibility,
   onVisible,
@@ -567,6 +678,7 @@ function PdfPageView({
     let textLayer: TextLayer | null = null;
     let removeOutlineTextLinks: (() => void) | null = null;
     let removeSearchHighlights: (() => void) | null = null;
+    let removeUserHighlights: (() => void) | null = null;
     let removeSelectionSmoother: (() => void) | null = null;
 
     async function renderPage() {
@@ -627,6 +739,14 @@ function PdfPageView({
           searchQuery,
         );
 
+        removeUserHighlights = installUserAnnotationHighlights(
+          highlightLayerElement,
+          textLayerElement,
+          textLayer.textDivs as HTMLElement[],
+          textLayer.textContentItemsStr,
+          annotations,
+        );
+
         removeOutlineTextLinks = installOutlineTextLinks(
           textLayerElement,
           textLayer.textDivs as HTMLElement[],
@@ -635,8 +755,8 @@ function PdfPageView({
           (page) => onNavigatePageRef.current(page),
         );
 
-        const annotations = await page.getAnnotations({ intent: "display" }).catch(() => []);
-        if (cancelled || annotations.length === 0) return;
+        const pdfAnnotations = await page.getAnnotations({ intent: "display" }).catch(() => []);
+        if (cancelled || pdfAnnotations.length === 0) return;
 
         const linkService = createLinkService((destination) => onNavigateDestinationRef.current(destination));
         const annotationLayer = new AnnotationLayer({
@@ -655,12 +775,12 @@ function PdfPageView({
         await annotationLayer.render({
           viewport,
           div: annotationLayerElement,
-          annotations,
+          annotations: pdfAnnotations,
           page,
           linkService: linkService as never,
           renderForms: false,
         });
-        expandNarrowAnnotationLinks(annotationLayerElement, annotations, viewport);
+        expandNarrowAnnotationLinks(annotationLayerElement, pdfAnnotations, viewport);
       } catch (error) {
         if (!cancelled && !(error instanceof Error && error.name === "RenderingCancelledException")) {
           onPageErrorRef.current("A PDF page could not be rendered.");
@@ -679,12 +799,13 @@ function PdfPageView({
       textLayer?.cancel();
       removeOutlineTextLinks?.();
       removeSearchHighlights?.();
+      removeUserHighlights?.();
       removeSelectionSmoother?.();
     };
-  }, [outlineTargets, pageNumber, pdf, scale, searchQuery]);
+  }, [annotations, outlineTargets, pageNumber, pdf, scale, searchQuery]);
 
   return (
-    <div ref={shellRef} className="pdf-page-shell" id={`pdf-page-${pageNumber}`}>
+    <div ref={shellRef} className="pdf-page-shell" id={`pdf-page-${pageNumber}`} data-pdf-page={pageNumber}>
       <div className="pdf-page-inner" style={{ width: size.width || undefined, height: size.height || undefined }}>
         <canvas ref={canvasRef} className="pdf-canvas" aria-label={`Page ${pageNumber}`} />
         <div ref={highlightLayerRef} className="pdf-highlight-layer" aria-hidden="true" />
@@ -700,12 +821,15 @@ function PdfPageView({
 export function PdfReader({
   fileUrl,
   state,
+  annotations,
   command,
   searchQuery,
   onTocChange,
   onSearchResults,
   onSearchStatus,
   onLocationChange,
+  onSelectionChange,
+  onReadableTextChange,
   onError,
   onLoadStatus,
 }: ReaderEngineProps) {
@@ -743,6 +867,8 @@ export function PdfReader({
   const onSearchResultsRef = useRef(onSearchResults);
   const onSearchStatusRef = useRef(onSearchStatus);
   const onLocationChangeRef = useRef(onLocationChange);
+  const onSelectionChangeRef = useRef(onSelectionChange);
+  const onReadableTextChangeRef = useRef(onReadableTextChange);
   const onErrorRef = useRef(onError);
   const onLoadStatusRef = useRef(onLoadStatus);
 
@@ -761,6 +887,14 @@ export function PdfReader({
   useEffect(() => {
     onLocationChangeRef.current = onLocationChange;
   }, [onLocationChange]);
+
+  useEffect(() => {
+    onSelectionChangeRef.current = onSelectionChange;
+  }, [onSelectionChange]);
+
+  useEffect(() => {
+    onReadableTextChangeRef.current = onReadableTextChange;
+  }, [onReadableTextChange]);
 
   useEffect(() => {
     onErrorRef.current = onError;
@@ -908,6 +1042,8 @@ export function PdfReader({
     onSearchResultsRef.current([]);
     onSearchStatusRef.current({ state: "idle", query: "" });
     onTocChangeRef.current([]);
+    onSelectionChangeRef.current(null);
+    onReadableTextChangeRef.current(null);
 
     const loadingTask = getDocument({
       url: fileUrl,
@@ -1043,8 +1179,20 @@ export function PdfReader({
     const step = dualPage ? 2 : 1;
     if (command.type === "next") goToPage(currentPage + step);
     if (command.type === "prev") goToPage(currentPage - step);
+    if (command.type === "nextChapter" || command.type === "prevChapter") {
+      const targets = outlineTargets.map((target) => target.page).filter((page) => page >= 1 && page <= numPagesRef.current).sort((first, second) => first - second);
+      const targetPage =
+        command.type === "nextChapter"
+          ? targets.find((page) => page > currentPage) ?? numPagesRef.current
+          : [...targets].reverse().find((page) => page < currentPage) ?? 1;
+      goToPage(targetPage);
+    }
+    if (command.type === "goToProgress") {
+      const targetPage = Math.round(clamp(command.progress, 0, 1) * Math.max(0, numPagesRef.current - 1)) + 1;
+      goToPage(targetPage);
+    }
     if (command.type === "goTo" && command.locator.type === "pdf-page") goToPage(command.locator.page);
-  }, [command, currentPage, dualPage, goToPage]);
+  }, [command, currentPage, dualPage, goToPage, outlineTargets]);
 
   useEffect(() => {
     if (!numPages) return;
@@ -1061,6 +1209,67 @@ export function PdfReader({
       label: `Page ${safePage} of ${numPages}`,
     });
   }, [currentPage, numPages]);
+
+  useEffect(() => {
+    if (!pdf || !numPages) return undefined;
+
+    let cancelled = false;
+    const safePage = clamp(currentPage, 1, numPages);
+    void getCachedPageText(pdf, safePage, textCacheRef.current, textPromiseCacheRef.current).then(
+      (pageText) => {
+        if (cancelled) return;
+        onReadableTextChangeRef.current({
+          text: pageText.text.slice(0, 12000),
+          locator: { type: "pdf-page", page: safePage },
+          label: `Page ${safePage} of ${numPages}`,
+        });
+      },
+      () => {
+        if (!cancelled) onReadableTextChangeRef.current(null);
+      },
+    );
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentPage, numPages, pdf]);
+
+  useEffect(() => {
+    if (!numPages) return undefined;
+
+    let frame: number | null = null;
+    let timer: number | null = null;
+    const reportSelection = () => {
+      if (frame !== null) window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(() => {
+        frame = null;
+        onSelectionChangeRef.current(pdfSelectionFromDocument(numPagesRef.current));
+      });
+    };
+    const scheduleSelectionReport = (delay = 0) => {
+      if (timer !== null) window.clearTimeout(timer);
+      timer = window.setTimeout(() => {
+        timer = null;
+        reportSelection();
+      }, delay);
+    };
+    const reportSoon = () => scheduleSelectionReport(0);
+    const reportAfterSelectionSettles = () => scheduleSelectionReport(120);
+    const reportAfterTouchSelection = () => scheduleSelectionReport(240);
+
+    document.addEventListener("selectionchange", reportAfterSelectionSettles);
+    document.addEventListener("mouseup", reportSoon);
+    document.addEventListener("keyup", reportSoon);
+    document.addEventListener("touchend", reportAfterTouchSelection);
+    return () => {
+      document.removeEventListener("selectionchange", reportAfterSelectionSettles);
+      document.removeEventListener("mouseup", reportSoon);
+      document.removeEventListener("keyup", reportSoon);
+      document.removeEventListener("touchend", reportAfterTouchSelection);
+      if (timer !== null) window.clearTimeout(timer);
+      if (frame !== null) window.cancelAnimationFrame(frame);
+    };
+  }, [numPages]);
 
   useEffect(() => {
     const page = pendingScrollPage.current;
@@ -1179,6 +1388,17 @@ export function PdfReader({
     return [currentPage];
   }, [currentPage, dualPage, numPages, state.layout]);
 
+  const annotationsByPdfPage = useMemo(() => {
+    const byPage = new Map<number, ReaderAnnotation[]>();
+    annotations.forEach((annotation) => {
+      if (annotation.locator.type !== "pdf-page") return;
+      const items = byPage.get(annotation.locator.page) ?? [];
+      items.push(annotation);
+      byPage.set(annotation.locator.page, items);
+    });
+    return byPage;
+  }, [annotations]);
+
   const verticalStartPage = visiblePages[0] ?? 1;
   const verticalEndPage = visiblePages[visiblePages.length - 1] ?? 1;
   const topSpacerHeight = state.layout === "vertical" ? Math.max(0, (verticalStartPage - 1) * estimatedVerticalStride) : 0;
@@ -1203,7 +1423,7 @@ export function PdfReader({
   }
 
   return (
-    <div ref={containerRef} className={state.layout === "vertical" ? "reader-viewer vertical" : "reader-viewer paginated"} onScroll={handleViewerScroll}>
+    <div ref={containerRef} className={`${state.layout === "vertical" ? "reader-viewer vertical" : "reader-viewer paginated"} page-animation-${state.pageTurnAnimation}`} onScroll={handleViewerScroll}>
       <div className={state.layout === "vertical" ? "pdf-pages" : "pdf-spread"}>
         {topSpacerHeight > 0 ? <div className="pdf-page-spacer" style={{ height: topSpacerHeight }} aria-hidden="true" /> : null}
         {visiblePages.map((page) => (
@@ -1213,6 +1433,7 @@ export function PdfReader({
             pageNumber={page}
             scale={scale}
             searchQuery={searchQuery}
+            annotations={annotationsByPdfPage.get(page) ?? []}
             outlineTargets={outlineTargets}
             observeVisibility={state.layout === "vertical"}
             onVisible={handleVisiblePage}

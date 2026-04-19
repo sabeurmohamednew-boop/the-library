@@ -1,4 +1,4 @@
-import type { BookDTO, ReaderLocator, ReaderState, SearchResult, TocItem } from "@/lib/types";
+import type { BookDTO, ReaderAnnotation, ReaderLocator, ReaderState, SearchResult, TocItem } from "@/lib/types";
 
 export const READER_SHORTCUT_EVENT = "library-reader-shortcut";
 
@@ -7,12 +7,27 @@ export type ReaderShortcutDetail = {
 };
 
 export type ReaderCommand =
-  | { id: number; type: "next" | "prev" }
-  | { id: number; type: "goTo"; locator: ReaderLocator };
+  | { id: number; type: "next" | "prev" | "nextChapter" | "prevChapter" }
+  | { id: number; type: "goTo"; locator: ReaderLocator }
+  | { id: number; type: "goToProgress"; progress: number };
 
 export type ReaderCommandInput =
-  | { type: "next" | "prev" }
-  | { type: "goTo"; locator: ReaderLocator };
+  | { type: "next" | "prev" | "nextChapter" | "prevChapter" }
+  | { type: "goTo"; locator: ReaderLocator }
+  | { type: "goToProgress"; progress: number };
+
+export type ReaderSelection = {
+  text: string;
+  locator: ReaderLocator;
+  progress: number;
+  label: string;
+};
+
+export type ReaderReadableText = {
+  text: string;
+  locator: ReaderLocator;
+  label: string;
+};
 
 export type ReaderSearchStatus = {
   state: "idle" | "pending" | "searching" | "done";
@@ -32,12 +47,15 @@ export type ReaderEngineProps = {
   book: BookDTO;
   fileUrl: string;
   state: ReaderState;
+  annotations: ReaderAnnotation[];
   command: ReaderCommand | null;
   searchQuery: string;
   onTocChange: (items: TocItem[]) => void;
   onSearchResults: (items: SearchResult[]) => void;
   onSearchStatus: (status: ReaderSearchStatus) => void;
   onLocationChange: (update: { locator: ReaderLocator; progress: number; label: string }) => void;
+  onSelectionChange: (selection: ReaderSelection | null) => void;
+  onReadableTextChange: (text: ReaderReadableText | null) => void;
   onError: (message: string) => void;
   onLoadStatus: (status: ReaderLoadStatus) => void;
 };

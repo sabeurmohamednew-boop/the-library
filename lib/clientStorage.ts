@@ -26,14 +26,51 @@ export function readerStateKey(slug: string) {
   return `${READER_STATE_PREFIX}${slug}`;
 }
 
-export function loadReaderState(slug: string, fallback?: ReaderState): ReaderState {
-  return readJson<ReaderState>(readerStateKey(slug), fallback ?? {
+function createDefaultReaderState(slug: string): ReaderState {
+  return {
     ...DEFAULT_READER_PREFERENCES,
     slug,
     progress: 0,
+    pdfPage: 1,
     bookmarks: [],
+    annotations: [],
+    stats: {
+      minutesRead: 0,
+      sessions: 0,
+      streak: 0,
+    },
     lastOpenedAt: new Date().toISOString(),
-  });
+  };
+}
+
+function normalizeReaderState(slug: string, state: Partial<ReaderState> | null | undefined, fallback?: ReaderState): ReaderState {
+  const base = fallback ?? createDefaultReaderState(slug);
+  const defaultStats = {
+    minutesRead: 0,
+    sessions: 0,
+    streak: 0,
+  };
+  const next = {
+    ...DEFAULT_READER_PREFERENCES,
+    ...base,
+    ...(state ?? {}),
+    slug,
+    bookmarks: Array.isArray(state?.bookmarks) ? state.bookmarks : base.bookmarks,
+    annotations: Array.isArray(state?.annotations) ? state.annotations : [],
+    stats: {
+      ...defaultStats,
+      ...(base.stats ?? {}),
+      ...(state?.stats ?? {}),
+    },
+    lastOpenedAt: typeof state?.lastOpenedAt === "string" ? state.lastOpenedAt : base.lastOpenedAt,
+  };
+
+  return next;
+}
+
+export function loadReaderState(slug: string, fallback?: ReaderState): ReaderState {
+  const state = readJson<Partial<ReaderState> | null>(readerStateKey(slug), null);
+  return normalizeReaderState(slug, state, fallback);
 }
 
 export function saveReaderState(slug: string, state: ReaderState) {

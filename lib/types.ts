@@ -31,9 +31,14 @@ export type BookDTO = {
   updatedAt: string;
 };
 
-export type ReaderTheme = "light" | "dark" | "sepia";
+export type ReaderTheme = "light" | "dark" | "sepia" | "black";
 export type ReaderLayout = "paginated" | "vertical";
-export type ReaderFont = "original" | "default" | "literata" | "merriweather";
+export type ReaderFont = "original" | "default" | "system" | "literata" | "merriweather";
+export type ReaderTextAlign = "left" | "justify";
+export type ReaderProgressDisplay = "percentage" | "page" | "chapterPagesLeft" | "chapterTimeLeft" | "bookTimeLeft" | "hidden";
+export type ReaderOrientation = "auto" | "portrait" | "landscape";
+export type ReaderPageTurnAnimation = "none" | "slide" | "flip";
+export type ReaderHighlightColor = "yellow" | "green" | "blue" | "pink";
 
 export type ReaderLocator =
   | { type: "pdf-page"; page: number }
@@ -48,6 +53,19 @@ export type ReaderBookmark = {
   progress: number;
 };
 
+export type ReaderAnnotation = {
+  id: string;
+  kind: "highlight" | "note";
+  quote: string;
+  note?: string;
+  color: ReaderHighlightColor;
+  createdAt: string;
+  updatedAt: string;
+  locator: ReaderLocator;
+  progress: number;
+  label: string;
+};
+
 export type ReaderPreferences = {
   theme: ReaderTheme;
   layout: ReaderLayout;
@@ -59,6 +77,33 @@ export type ReaderPreferences = {
   fontSize: number;
   lineHeight: number;
   margin: number;
+  textAlign: ReaderTextAlign;
+  paragraphSpacing: number;
+  wordSpacing: number;
+  letterSpacing: number;
+  originalFormatting: boolean;
+  normalizeText: boolean;
+  progressDisplay: ReaderProgressDisplay;
+  orientation: ReaderOrientation;
+  pageTurnAnimation: ReaderPageTurnAnimation;
+  showControls: boolean;
+  immersiveMode: boolean;
+  keepScreenAwake: boolean;
+  tapZones: boolean;
+  swipePaging: boolean;
+  volumeKeyPaging: boolean;
+  readAloudAutoStart: boolean;
+  readAloudAutoTurn: boolean;
+  readAloudRate: number;
+  readAloudVoiceURI?: string;
+  readAloudSkipSeconds: number;
+};
+
+export type ReaderStats = {
+  minutesRead: number;
+  sessions: number;
+  streak: number;
+  lastReadDate?: string;
 };
 
 export type ReaderState = ReaderPreferences & {
@@ -68,6 +113,8 @@ export type ReaderState = ReaderPreferences & {
   epubCfi?: string;
   locationLabel?: string;
   bookmarks: ReaderBookmark[];
+  annotations: ReaderAnnotation[];
+  stats: ReaderStats;
   lastOpenedAt: string;
 };
 
