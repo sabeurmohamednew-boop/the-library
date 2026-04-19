@@ -905,15 +905,20 @@ export function ReaderShell({ book }: ReaderShellProps) {
       const elapsed = Date.now() - start.time;
       const rect = stageElement.getBoundingClientRect();
 
-      if (state.swipePaging && elapsed < 700 && Math.abs(dx) > 56 && Math.abs(dx) > Math.abs(dy) * 1.4) {
+      const isNarrowScreen = window.innerWidth <= 860;
+      const swipeDistance = isNarrowScreen ? 42 : 56;
+      const swipeRatio = isNarrowScreen ? 1.2 : 1.4;
+
+      if (state.swipePaging && elapsed < 760 && Math.abs(dx) > swipeDistance && Math.abs(dx) > Math.abs(dy) * swipeRatio) {
         issueCommand({ type: dx < 0 ? "next" : "prev" });
         return;
       }
 
-      if (state.tapZones && state.layout === "paginated" && Math.abs(dx) < 8 && Math.abs(dy) < 8) {
+      if (state.tapZones && state.layout === "paginated" && Math.abs(dx) < 12 && Math.abs(dy) < 12) {
         const x = event.clientX - rect.left;
-        if (x < rect.width * 0.24) issueCommand({ type: "prev" });
-        if (x > rect.width * 0.76) issueCommand({ type: "next" });
+        const edgeWidth = isNarrowScreen ? 0.28 : 0.24;
+        if (x < rect.width * edgeWidth) issueCommand({ type: "prev" });
+        if (x > rect.width * (1 - edgeWidth)) issueCommand({ type: "next" });
       }
     }
 
@@ -1253,6 +1258,16 @@ export function ReaderShell({ book }: ReaderShellProps) {
             </ReaderErrorBoundary>
           )}
           <div className={overlayVisible ? "reader-overlay visible" : "reader-overlay"}>{state.locationLabel || `${progressPercent}%`}</div>
+          {state.layout === "paginated" && !panel && !selection ? (
+            <div className="mobile-page-turn-controls" aria-label="Page turn controls">
+              <button className="icon-button" type="button" onClick={() => issueCommand({ type: "prev" })} aria-label="Previous page">
+                <ChevronLeft size={18} aria-hidden="true" />
+              </button>
+              <button className="icon-button" type="button" onClick={() => issueCommand({ type: "next" })} aria-label="Next page">
+                <ChevronRight size={18} aria-hidden="true" />
+              </button>
+            </div>
+          ) : null}
           {selection ? (
             <>
               <SelectionToolbar
@@ -2320,47 +2335,59 @@ function MobileMenuPanel({
   toggleFullscreen: () => Promise<void>;
   shareUrl: () => string;
 }) {
+  const [showMore, setShowMore] = useState(false);
+
   return (
-    <div className="panel-list">
-      <button className="button" type="button" onClick={() => openPanel("search")}>
-        Search
-      </button>
-      <button className="button" type="button" onClick={() => openPanel("toc")}>
-        Contents
-      </button>
-      <button className="button" type="button" onClick={() => openPanel("annotations")}>
-        Notes and highlights
-      </button>
-      <button className="button" type="button" onClick={addBookmark}>
-        Add bookmark
-      </button>
-      <button className="button" type="button" onClick={() => openPanel("bookmarks")}>
-        Bookmarks
-      </button>
-      <button className="button" type="button" onClick={() => openPanel("settings")}>
-        Settings
-      </button>
-      <button className="button" type="button" onClick={() => openPanel("position")}>
-        Go to
-      </button>
-      <button className="button" type="button" onClick={() => openPanel("audio")}>
-        Read aloud
-      </button>
-      <button className="button" type="button" onClick={() => openPanel("info")}>
-        Book
-      </button>
-      <div className="settings-actions-row">
-        <button className="button" type="button" onClick={() => issueCommand({ type: "prevChapter" })}>
-          Previous chapter
+    <div className="mobile-menu-content">
+      <div className="panel-list mobile-menu-primary">
+        <button className="button" type="button" onClick={() => openPanel("search")}>
+          Search
         </button>
-        <button className="button" type="button" onClick={() => issueCommand({ type: "nextChapter" })}>
-          Next chapter
+        <button className="button" type="button" onClick={() => openPanel("toc")}>
+          Contents
+        </button>
+        <button className="button" type="button" onClick={() => openPanel("annotations")}>
+          Notes and highlights
+        </button>
+        <button className="button" type="button" onClick={addBookmark}>
+          Add bookmark
+        </button>
+        <button className="button" type="button" onClick={() => openPanel("bookmarks")}>
+          Bookmarks
+        </button>
+        <button className="button" type="button" onClick={() => openPanel("settings")}>
+          Settings
+        </button>
+        <button className="button subtle" type="button" onClick={() => setShowMore((current) => !current)} aria-expanded={showMore}>
+          More
         </button>
       </div>
-      <ShareButton className="button" label="Share" getUrl={shareUrl} />
-      <button className="button" type="button" onClick={toggleFullscreen}>
-        Fullscreen
-      </button>
+
+      {showMore ? (
+        <div className="panel-list mobile-menu-secondary" aria-label="More reader controls">
+          <button className="button" type="button" onClick={() => openPanel("position")}>
+            Go to
+          </button>
+          <button className="button" type="button" onClick={() => openPanel("audio")}>
+            Read aloud
+          </button>
+          <button className="button" type="button" onClick={() => openPanel("info")}>
+            Book
+          </button>
+          <div className="settings-actions-row">
+            <button className="button" type="button" onClick={() => issueCommand({ type: "prevChapter" })}>
+              Previous chapter
+            </button>
+            <button className="button" type="button" onClick={() => issueCommand({ type: "nextChapter" })}>
+              Next chapter
+            </button>
+          </div>
+          <ShareButton className="button" label="Share" getUrl={shareUrl} />
+          <button className="button" type="button" onClick={toggleFullscreen}>
+            Fullscreen
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }

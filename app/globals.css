@@ -1734,6 +1734,10 @@ canvas {
   gap: 6px;
 }
 
+.mobile-page-turn-controls {
+  display: none;
+}
+
 .reader-progress-wrap {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -5130,6 +5134,17 @@ kbd {
   display: none;
 }
 
+.mobile-menu-content,
+.mobile-menu-secondary {
+  display: grid;
+  gap: 10px;
+}
+
+.mobile-menu-secondary {
+  border-top: 1px solid rgb(var(--border-rgb) / 0.58);
+  padding-top: 10px;
+}
+
 @media (max-width: 1180px) {
   .reader-search {
     width: min(190px, 20vw);
@@ -5190,6 +5205,34 @@ kbd {
     background: rgb(var(--card-rgb) / 0.58);
   }
 
+  .mobile-page-turn-controls {
+    position: absolute;
+    inset: 0;
+    z-index: 14;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 8px;
+    pointer-events: none;
+  }
+
+  .mobile-page-turn-controls .icon-button {
+    width: 42px;
+    min-height: 50px;
+    border-color: rgb(var(--border-rgb) / 0.54);
+    background: rgb(var(--card-rgb) / 0.58);
+    color: var(--ink-muted);
+    box-shadow: 0 6px 18px rgb(var(--shadow-rgb) / 0.1);
+    opacity: 0.78;
+    pointer-events: auto;
+    backdrop-filter: blur(10px);
+  }
+
+  .mobile-page-turn-controls .icon-button:active,
+  .mobile-page-turn-controls .icon-button:focus-visible {
+    opacity: 1;
+  }
+
   .reader-main.panel-open {
     grid-template-columns: 1fr;
   }
@@ -5225,6 +5268,14 @@ kbd {
   .reader-panel-audio,
   .reader-panel-position {
     max-height: min(calc(84dvh - env(safe-area-inset-bottom, 0px)), 720px);
+  }
+
+  .reader-panel-menu {
+    max-height: min(calc(58dvh - env(safe-area-inset-bottom, 0px)), 460px);
+  }
+
+  .reader-panel-settings {
+    max-height: min(calc(76dvh - env(safe-area-inset-bottom, 0px)), 680px);
   }
 
   .reader-panel .panel-head {
@@ -5278,6 +5329,18 @@ kbd {
 
   .selection-toolbar {
     display: none;
+  }
+
+  .mobile-menu-primary {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .mobile-menu-primary .button,
+  .mobile-menu-secondary .button {
+    width: 100%;
+    min-height: 42px;
   }
 
   .mobile-selection-actions {
@@ -5334,6 +5397,14 @@ kbd {
   .reader-panel-audio,
   .reader-panel-position {
     max-height: min(calc(88dvh - env(safe-area-inset-bottom, 0px)), 760px);
+  }
+
+  .reader-panel-menu {
+    max-height: min(calc(60dvh - env(safe-area-inset-bottom, 0px)), 500px);
+  }
+
+  .reader-panel-settings {
+    max-height: min(calc(78dvh - env(safe-area-inset-bottom, 0px)), 700px);
   }
 
   .settings-grid {

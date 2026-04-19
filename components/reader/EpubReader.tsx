@@ -39,6 +39,8 @@ type EpubSettings = Pick<
   | "originalFormatting"
   | "normalizeText"
   | "pageTurnAnimation"
+  | "tapZones"
+  | "swipePaging"
 >;
 
 function flattenToc(items: any[] = [], depth = 0): TocItem[] {
@@ -271,6 +273,91 @@ function bindContentKeyboardShortcuts(
 
   documentElement.addEventListener("keydown", handleKeyDown);
   cleanups.current.push(() => documentElement.removeEventListener("keydown", handleKeyDown));
+}
+
+function bindContentPagingGestures(
+  content: any,
+  rendition: any,
+  settingsRef: { current: Pick<ReaderState, "layout" | "tapZones" | "swipePaging"> },
+  boundDocuments: { current: WeakSet<Document> },
+  cleanups: { current: Array<() => void> },
+) {
+  const documentElement = content?.document as Document | undefined;
+  if (!documentElement) return;
+  if (boundDocuments.current.has(documentElement)) return;
+  boundDocuments.current.add(documentElement);
+
+  let start: { x: number; y: number; time: number } | null = null;
+  let lastTurnAt = 0;
+
+  const readPoint = (event: PointerEvent | TouchEvent) => {
+    if ("changedTouches" in event) {
+      const touch = event.changedTouches[0] ?? event.touches[0];
+      return touch ? { x: touch.clientX, y: touch.clientY } : null;
+    }
+
+    return { x: event.clientX, y: event.clientY };
+  };
+
+  const pageTurn = (direction: "prev" | "next") => {
+    lastTurnAt = Date.now();
+    if (direction === "next") void rendition.next?.();
+    if (direction === "prev") void rendition.prev?.();
+  };
+
+  const handleStart = (event: PointerEvent | TouchEvent) => {
+    if (isEditableContentTarget(event.target)) return;
+    const point = readPoint(event);
+    if (!point) return;
+    start = { ...point, time: Date.now() };
+  };
+
+  const handleEnd = (event: PointerEvent | TouchEvent) => {
+    const currentStart = start;
+    start = null;
+    if (!currentStart || isEditableContentTarget(event.target)) return;
+    if (Date.now() - lastTurnAt < 320) return;
+    if (documentElement.getSelection?.()?.toString().trim()) return;
+
+    const settings = settingsRef.current;
+    if (settings.layout !== "paginated") return;
+
+    const point = readPoint(event);
+    if (!point) return;
+
+    const dx = point.x - currentStart.x;
+    const dy = point.y - currentStart.y;
+    const elapsed = Date.now() - currentStart.time;
+    const viewportWidth = documentElement.defaultView?.innerWidth ?? documentElement.documentElement.clientWidth;
+
+    if (settings.swipePaging && elapsed < 760 && Math.abs(dx) > 42 && Math.abs(dx) > Math.abs(dy) * 1.25) {
+      event.preventDefault();
+      pageTurn(dx < 0 ? "next" : "prev");
+      return;
+    }
+
+    if (settings.tapZones && Math.abs(dx) < 12 && Math.abs(dy) < 12 && viewportWidth > 0) {
+      if (point.x < viewportWidth * 0.28) {
+        event.preventDefault();
+        pageTurn("prev");
+      }
+      if (point.x > viewportWidth * 0.72) {
+        event.preventDefault();
+        pageTurn("next");
+      }
+    }
+  };
+
+  documentElement.addEventListener("pointerdown", handleStart);
+  documentElement.addEventListener("pointerup", handleEnd);
+  documentElement.addEventListener("touchstart", handleStart, { passive: true });
+  documentElement.addEventListener("touchend", handleEnd, { passive: false });
+  cleanups.current.push(() => {
+    documentElement.removeEventListener("pointerdown", handleStart);
+    documentElement.removeEventListener("pointerup", handleEnd);
+    documentElement.removeEventListener("touchstart", handleStart);
+    documentElement.removeEventListener("touchend", handleEnd);
+  });
 }
 
 function withTimeout<T>(promise: Promise<T>, label: string, timeoutMs = 20000) {
@@ -996,6 +1083,7 @@ export function EpubReader({
   const stateEpubCfiRef = useRef(state.epubCfi);
   const appliedAnnotationCfisRef = useRef<string[]>([]);
   const contentKeyboardDocumentsRef = useRef<WeakSet<Document>>(new WeakSet());
+  const contentGestureDocumentsRef = useRef<WeakSet<Document>>(new WeakSet());
   const contentKeyboardCleanupsRef = useRef<Array<() => void>>([]);
   const [ready, setReady] = useState(false);
   const [loadError, setLoadError] = useState("");
@@ -1021,6 +1109,8 @@ export function EpubReader({
       originalFormatting: state.originalFormatting,
       normalizeText: state.normalizeText,
       pageTurnAnimation: state.pageTurnAnimation,
+      tapZones: state.tapZones,
+      swipePaging: state.swipePaging,
     }),
     [
       state.brightness,
@@ -1036,6 +1126,8 @@ export function EpubReader({
       state.originalFormatting,
       state.pageTurnAnimation,
       state.paragraphSpacing,
+      state.swipePaging,
+      state.tapZones,
       state.textAlign,
       state.theme,
       state.wordSpacing,
@@ -1288,6 +1380,7 @@ export function EpubReader({
         rendition.hooks?.content?.register?.((contents: any) => {
           applyContentStyleToContent(contents, settingsRef.current);
           bindContentKeyboardShortcuts(contents, contentKeyboardDocumentsRef, contentKeyboardCleanupsRef);
+          bindContentPagingGestures(contents, rendition, settingsRef, contentGestureDocumentsRef, contentKeyboardCleanupsRef);
           const reportSelection = () => {
             const currentLocation = typeof rendition?.currentLocation === "function" ? rendition.currentLocation() : null;
             const cfi = currentLocation?.start?.cfi || lastCfi.current;
