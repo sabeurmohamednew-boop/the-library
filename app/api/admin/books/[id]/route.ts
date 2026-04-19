@@ -89,16 +89,43 @@ function rowSummary(book: {
   };
 }
 
-function metadataPersisted(book: { title: string; description: string; author: string; format: string; category: string; pageCount: number; publicationDate: Date }, input: BookUpdateInput) {
-  return (
+function metadataPersisted(
+  book: {
+    title: string;
+    description: string;
+    author: string;
+    format: string;
+    category: string;
+    pageCount: number;
+    publicationDate: Date;
+    bookBlobUrl: string;
+    bookBlobPath: string;
+    fileSize: number;
+    coverBlobUrl: string;
+    coverBlobPath: string;
+    coverContentType: string;
+  },
+  input: BookUpdateInput,
+) {
+  const metadataMatches =
     book.title === input.title &&
     book.description === input.description &&
     book.author === input.author &&
     book.format === input.format &&
     book.category === input.category &&
     book.pageCount === input.pageCount &&
-    book.publicationDate.getTime() === input.publicationDate.getTime()
-  );
+    book.publicationDate.getTime() === input.publicationDate.getTime();
+
+  const bookBlobMatches =
+    !input.bookBlob || (book.bookBlobUrl === input.bookBlob.url && book.bookBlobPath === input.bookBlob.pathname && book.fileSize === input.bookBlob.size);
+
+  const coverBlobMatches =
+    !input.coverBlob ||
+    (book.coverBlobUrl === input.coverBlob.url &&
+      book.coverBlobPath === input.coverBlob.pathname &&
+      book.coverContentType === input.coverBlob.contentType);
+
+  return metadataMatches && bookBlobMatches && coverBlobMatches;
 }
 
 function revalidateBookPaths(book: { id: string; slug: string; author: string }, previous: { slug: string; author: string }) {
@@ -191,6 +218,20 @@ async function updateBook(request: Request, { params }: RouteContext) {
       editLog("persistence-verification-failed", {
         id,
         expected: updateSummary(parsed.data),
+        expectedBookBlob: parsed.data.bookBlob
+          ? {
+              url: parsed.data.bookBlob.url,
+              pathname: parsed.data.bookBlob.pathname,
+              size: parsed.data.bookBlob.size,
+            }
+          : null,
+        expectedCoverBlob: parsed.data.coverBlob
+          ? {
+              url: parsed.data.coverBlob.url,
+              pathname: parsed.data.coverBlob.pathname,
+              contentType: parsed.data.coverBlob.contentType,
+            }
+          : null,
         persisted: persisted
           ? {
               title: persisted.title,
@@ -199,6 +240,12 @@ async function updateBook(request: Request, { params }: RouteContext) {
               category: persisted.category,
               pageCount: persisted.pageCount,
               publicationDate: persisted.publicationDate.toISOString(),
+              bookBlobUrl: persisted.bookBlobUrl,
+              bookBlobPath: persisted.bookBlobPath,
+              fileSize: persisted.fileSize,
+              coverBlobUrl: persisted.coverBlobUrl,
+              coverBlobPath: persisted.coverBlobPath,
+              coverContentType: persisted.coverContentType,
             }
           : null,
       });

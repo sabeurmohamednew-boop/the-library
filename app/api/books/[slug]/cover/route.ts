@@ -28,7 +28,7 @@ export async function GET(_request: Request, { params }: RouteContext) {
   return NextResponse.redirect(book.coverBlobUrl, {
     status: 302,
     headers: {
-      "Cache-Control": "public, max-age=3600",
+      "Cache-Control": "no-store, max-age=0",
     },
   });
 }

@@ -1,7 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { FormEvent, useState } from "react";
+import type { ChangeEvent, FormEvent } from "react";
+import { useRef, useState } from "react";
 import { BOOK_CATEGORIES, BOOK_FORMATS } from "@/lib/config";
 import { markLibraryContentChanged } from "@/lib/clientFreshness";
 import type { BookDTO } from "@/lib/types";
@@ -21,10 +22,23 @@ function dateInputValue(value: string) {
 
 export function AdminBookEditForm({ book, blobConfigured }: AdminBookEditFormProps) {
   const router = useRouter();
+  const bookFileInputRef = useRef<HTMLInputElement>(null);
+  const coverFileInputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [saved, setSaved] = useState<BookDTO | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [replacementBook, setReplacementBook] = useState<File | null>(null);
+  const [replacementCover, setReplacementCover] = useState<File | null>(null);
+
+  function handleFileChange(event: ChangeEvent<HTMLInputElement>, kind: "book" | "cover") {
+    const file = event.target.files?.[0] ?? null;
+    if (kind === "book") {
+      setReplacementBook(file);
+    } else {
+      setReplacementCover(file);
+    }
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -34,8 +48,6 @@ export function AdminBookEditForm({ book, blobConfigured }: AdminBookEditFormPro
     setSaved(null);
 
     const formData = new FormData(event.currentTarget);
-    const replacementBook = formData.get("bookFile") as File | null;
-    const replacementCover = formData.get("coverFile") as File | null;
 
     if (!blobConfigured && (replacementBook?.size || replacementCover?.size)) {
       setSubmitting(false);
@@ -48,6 +60,7 @@ export function AdminBookEditForm({ book, blobConfigured }: AdminBookEditFormPro
         replacementBook?.size ? uploadAdminBlob(replacementBook, "book", String(formData.get("title") ?? book.title)) : Promise.resolve(undefined),
         replacementCover?.size ? uploadAdminBlob(replacementCover, "cover", String(formData.get("title") ?? book.title)) : Promise.resolve(undefined),
       ]);
+      // Files are uploaded to Vercel Blob first; the PATCH persists the returned descriptors with the metadata.
       const payload = {
         title: String(formData.get("title") ?? ""),
         description: String(formData.get("description") ?? ""),
@@ -89,6 +102,10 @@ export function AdminBookEditForm({ book, blobConfigured }: AdminBookEditFormPro
 
       setSaved(responsePayload.book);
       markLibraryContentChanged(responsePayload.book.updatedAt);
+      setReplacementBook(null);
+      setReplacementCover(null);
+      if (bookFileInputRef.current) bookFileInputRef.current.value = "";
+      if (coverFileInputRef.current) coverFileInputRef.current.value = "";
       router.refresh();
     } catch (uploadError) {
       setSubmitting(false);
@@ -116,13 +133,29 @@ export function AdminBookEditForm({ book, blobConfigured }: AdminBookEditFormPro
       <div className="form-grid">
         <label className="label span-2">
           Replace book file
-          <input className="field" type="file" name="bookFile" accept=".pdf,.epub,application/pdf,application/epub+zip" disabled={!blobConfigured} />
+          <input
+            ref={bookFileInputRef}
+            className="field"
+            type="file"
+            name="bookFile"
+            accept=".pdf,.epub,application/pdf,application/epub+zip"
+            disabled={!blobConfigured}
+            onChange={(event) => handleFileChange(event, "book")}
+          />
           {fieldError("bookFile")}
         </label>
 
         <label className="label span-2">
           Replace cover
-          <input className="field" type="file" name="coverFile" accept="image/png,image/jpeg,image/webp,image/avif" disabled={!blobConfigured} />
+          <input
+            ref={coverFileInputRef}
+            className="field"
+            type="file"
+            name="coverFile"
+            accept="image/png,image/jpeg,image/webp,image/avif"
+            disabled={!blobConfigured}
+            onChange={(event) => handleFileChange(event, "cover")}
+          />
           {fieldError("coverFile")}
         </label>
 
