@@ -5,7 +5,7 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 import { PostHogProvider } from "@/components/PostHogProvider";
 import { RouteFreshness } from "@/components/RouteFreshness";
 import { ThemeProvider } from "@/components/ThemeProvider";
-import { SITE_CATEGORY, SITE_DESCRIPTION, SITE_NAME, SITE_TITLE, SITE_URL } from "@/lib/seo";
+import { SITE_CATEGORY, SITE_NAME, SITE_URL } from "@/lib/seo";
 import "./globals.css";
 
 const inter = Inter({
@@ -14,14 +14,18 @@ const inter = Inter({
   display: "swap",
 });
 
+const globalTitle = "The Library – Self-Hosted EPUB & PDF Reading Platform";
+const globalDescription =
+  "A minimalist self-hosted reading platform to read, manage, organize, and track your books. Supports EPUB and PDF with a clean, distraction-free interface.";
+
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   applicationName: SITE_NAME,
   title: {
-    default: SITE_TITLE,
+    default: globalTitle,
     template: `%s | ${SITE_NAME}`,
   },
-  description: SITE_DESCRIPTION,
+  description: globalDescription,
   category: SITE_CATEGORY,
   robots: {
     index: true,
@@ -35,8 +39,8 @@ export const metadata: Metadata = {
     },
   },
   openGraph: {
-    title: SITE_TITLE,
-    description: SITE_DESCRIPTION,
+    title: globalTitle,
+    description: globalDescription,
     url: "/",
     siteName: SITE_NAME,
     locale: "en_US",
@@ -44,8 +48,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary",
-    title: SITE_TITLE,
-    description: SITE_DESCRIPTION,
+    title: globalTitle,
+    description: globalDescription,
   },
 };
 
