@@ -4,6 +4,11 @@ const nextConfig: NextConfig = {
   allowedDevOrigins: ["192.168.0.100"],
   devIndicators: false,
   images: {
+    localPatterns: [
+      {
+        pathname: "/api/books/**/cover",
+      },
+    ],
     remotePatterns: [
       {
         protocol: "https",
