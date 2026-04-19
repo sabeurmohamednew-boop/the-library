@@ -9,9 +9,25 @@ type BookCoverProps = {
   className?: string;
 };
 
-export function BookCover({ book, className }: BookCoverProps) {
+function directCoverUrl(value: string | null | undefined) {
+  if (!value) return "";
+
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" ? url.toString() : "";
+  } catch {
+    return "";
+  }
+}
+
+function coverApiSrc(book: BookCoverProps["book"]) {
   const coverVersion = book.coverBlobPath || book.coverBlobUrl || book.updatedAt || "";
-  const coverSrc = coverVersion ? `/api/books/${book.slug}/cover?v=${encodeURIComponent(coverVersion)}` : `/api/books/${book.slug}/cover`;
+  const apiSrc = `/api/books/${book.slug}/cover`;
+  return coverVersion ? `${apiSrc}?v=${encodeURIComponent(coverVersion)}` : apiSrc;
+}
+
+export function BookCover({ book, className }: BookCoverProps) {
+  const coverSrc = directCoverUrl(book.coverBlobUrl) || coverApiSrc(book);
   const [failedSrc, setFailedSrc] = useState<string | null>(null);
   const failed = failedSrc === coverSrc;
   const coverClassName = ["book-cover-image", className].filter(Boolean).join(" ");
