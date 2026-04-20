@@ -1,10 +1,14 @@
 import Link from "next/link";
 import { Bookmark, BookOpen, ChevronLeft, ChevronRight, HelpCircle, List, Maximize, Menu, Search, Settings } from "lucide-react";
+import { displayAuthorLabel, displayBookTitle } from "@/lib/bookDisplay";
+import type { ReaderBookDTO } from "@/lib/types";
 
 type ReaderLoadingStateProps = {
   title?: string;
   detail?: string;
 };
+
+type ReaderLoadingShellBook = Pick<ReaderBookDTO, "title" | "author" | "format">;
 
 export function ReaderLoadingState({ title = "Opening book...", detail = "Preparing your reader." }: ReaderLoadingStateProps) {
   return (
@@ -38,7 +42,13 @@ export function ReaderLoadingFrame(props: ReaderLoadingStateProps) {
   );
 }
 
-export function ReaderRouteLoadingShell() {
+export function ReaderRouteLoadingShell({ book, detail = "Restoring your place and preparing pages." }: { book?: ReaderLoadingShellBook; detail?: string }) {
+  const bookTitle = book ? displayBookTitle(book.title) : "";
+  const author = book ? displayAuthorLabel({ author: book.author }) : "";
+  const titleLabel = bookTitle ? `${bookTitle}${author && author !== "Unknown" ? ` by ${author}` : ""}` : "";
+  const frameTitle = book ? `Opening ${book.format}` : undefined;
+  const frameDetail = bookTitle ? `Restoring your place in ${bookTitle}.` : detail;
+
   return (
     <div className="reader-page reader-loading-page">
       <header className="reader-topbar">
@@ -49,8 +59,8 @@ export function ReaderRouteLoadingShell() {
           </Link>
         </div>
 
-        <div className="reader-title reader-title-skeleton" aria-hidden="true">
-          <span className="reader-chrome-skeleton title" />
+        <div className={titleLabel ? "reader-title" : "reader-title reader-title-skeleton"} title={titleLabel || undefined} aria-hidden={titleLabel ? undefined : true}>
+          {titleLabel || <span className="reader-chrome-skeleton title" />}
         </div>
 
         <div className="reader-actions">
@@ -105,7 +115,7 @@ export function ReaderRouteLoadingShell() {
 
       <main className="reader-main" id="main">
         <section className="reader-stage" aria-label="Reader loading">
-          <ReaderLoadingFrame detail="Restoring your place and preparing pages." />
+          <ReaderLoadingFrame title={frameTitle} detail={frameDetail} />
         </section>
       </main>
     </div>

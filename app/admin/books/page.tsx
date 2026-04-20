@@ -5,9 +5,10 @@ import { AdminLogin } from "@/components/admin/AdminLogin";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { AuthorLinks } from "@/components/library/AuthorLinks";
 import { BookCover } from "@/components/library/BookCover";
-import { BOOK_CATEGORIES, BOOK_FORMATS, categoryLabel } from "@/lib/config";
+import { BOOK_CATEGORIES, BOOK_FORMATS } from "@/lib/config";
 import { adminPasswordConfigured, isAdminSession } from "@/lib/adminAuth";
 import { normalizeAuthorsForStorage } from "@/lib/authors";
+import { displayBookTitle, displayCategoryLabel, displayPublicationDate } from "@/lib/bookDisplay";
 import { serializeBook } from "@/lib/books";
 import { prisma } from "@/lib/db";
 import { safeRuntime } from "@/lib/runtime";
@@ -144,34 +145,38 @@ export default async function AdminBooksPage({ searchParams }: AdminBooksPagePro
         <div className="empty-state">No books match those admin filters.</div>
       ) : (
         <div className="admin-book-list">
-          {books.map((book) => (
-            <article className="admin-book-row" key={book.id}>
-              <Link className="admin-thumb cover-link" href={`/admin/books/${book.id}/edit`} aria-label={`Edit ${book.title}`} prefetch={false}>
-                <BookCover book={book} />
-              </Link>
-              <div className="admin-book-main">
-                <Link className="book-title-link" href={`/admin/books/${book.id}/edit`} prefetch={false}>
-                  {book.title}
+          {books.map((book) => {
+            const bookTitle = displayBookTitle(book.title);
+
+            return (
+              <article className="admin-book-row" key={book.id}>
+                <Link className="admin-thumb cover-link" href={`/admin/books/${book.id}/edit`} aria-label={`Edit ${bookTitle}`} prefetch={false}>
+                  <BookCover book={{ ...book, title: bookTitle }} />
                 </Link>
-                <AuthorLinks author={book.author} authors={book.authors} className="book-authors" prefix="By " />
-                <span className="muted small">ID {book.id}</span>
-                <span className="muted small">Slug {book.slug}</span>
-                {(duplicateCounts.get(duplicateKey(book)) ?? 0) > 1 ? <span className="muted small">Duplicate title/author</span> : null}
-              </div>
-              <div className="admin-book-meta">
-                <span>{book.format}</span>
-                <span>{categoryLabel(book.category)}</span>
-                <span>Published {formatDate(book.publicationDate)}</span>
-                <span>Uploaded {formatDate(book.uploadDate)}</span>
-              </div>
-              <div className="admin-row-actions">
-                <Link className="button" href={`/admin/books/${book.id}/edit`} prefetch={false}>
-                  Edit
-                </Link>
-                <AdminDeleteButton id={book.id} title={book.title} />
-              </div>
-            </article>
-          ))}
+                <div className="admin-book-main">
+                  <Link className="book-title-link" href={`/admin/books/${book.id}/edit`} prefetch={false}>
+                    {bookTitle}
+                  </Link>
+                  <AuthorLinks author={book.author} authors={book.authors} className="book-authors" prefix="By " />
+                  <span className="muted small">ID {book.id}</span>
+                  <span className="muted small">Slug {book.slug}</span>
+                  {(duplicateCounts.get(duplicateKey(book)) ?? 0) > 1 ? <span className="muted small">Duplicate title/author</span> : null}
+                </div>
+                <div className="admin-book-meta">
+                  <span>{book.format}</span>
+                  <span>{displayCategoryLabel(book.category)}</span>
+                  <span>Published {displayPublicationDate(book.publicationDate)}</span>
+                  <span>Uploaded {formatDate(book.uploadDate)}</span>
+                </div>
+                <div className="admin-row-actions">
+                  <Link className="button" href={`/admin/books/${book.id}/edit`} prefetch={false}>
+                    Edit
+                  </Link>
+                  <AdminDeleteButton id={book.id} title={bookTitle} />
+                </div>
+              </article>
+            );
+          })}
         </div>
       )}
     </main>

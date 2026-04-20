@@ -7,6 +7,7 @@ import { trackResumeClick } from "@/lib/analytics";
 import { BOOK_CATEGORIES, BOOK_FORMATS, LIBRARY_PAGE_SIZE } from "@/lib/config";
 import { getReaderStatesForLibrary, loadBookmarkedSlugs } from "@/lib/clientStorage";
 import { authorPath, bookAuthors, buildAuthorRows } from "@/lib/authors";
+import { displayAuthorName, displayBookTitle } from "@/lib/bookDisplay";
 import { normalizeSearch } from "@/lib/text";
 import type { LibraryBookDTO, ReaderState } from "@/lib/types";
 import { AuthorLinks } from "@/components/library/AuthorLinks";
@@ -284,23 +285,24 @@ export function LibraryClient({ books }: LibraryClientProps) {
               const state = readerStates.get(book.slug);
               const progress = Math.max(0, Math.min(1, state?.progress ?? 0));
               const resumeDetail = resumeDetailFor(book);
+              const bookTitle = displayBookTitle(book.title);
 
               return (
                 <article key={book.slug} className="continue-card">
                   <Link
                     className="continue-cover cover-link"
                     href={`/read/${book.slug}`}
-                    aria-label={`Resume ${book.title}`}
+                    aria-label={`Resume ${bookTitle}`}
                     prefetch={false}
                     onClick={() => trackResumeClick(book, progress)}
                   >
-                    <BookCover book={{ slug: book.slug, title: book.title, format: book.format, coverBlobPath: book.coverBlobPath, updatedAt: book.updatedAt }} />
+                    <BookCover book={{ slug: book.slug, title: bookTitle, format: book.format, coverBlobPath: book.coverBlobPath, updatedAt: book.updatedAt }} />
                   </Link>
                   <div className="continue-card-body">
                     <p className="continue-kicker">{book.format}</p>
                     <h3>
                       <Link href={`/books/${book.slug}`} prefetch={false}>
-                        {book.title}
+                        {bookTitle}
                       </Link>
                     </h3>
                     <AuthorLinks author={book.author} authors={book.authors} className="continue-authors" prefix="By " />
@@ -395,29 +397,37 @@ export function LibraryClient({ books }: LibraryClientProps) {
           </div>
         ) : view === "cover" ? (
           <div className="cover-grid">
-            {visibleBooks.map((book) => (
-              <Link key={book.slug} className="cover-link" href={`/books/${book.slug}`} aria-label={`Open details for ${book.title}`} prefetch={false}>
-                <BookCover book={{ slug: book.slug, title: book.title, format: book.format, coverBlobPath: book.coverBlobPath, updatedAt: book.updatedAt }} />
-              </Link>
-            ))}
+            {visibleBooks.map((book) => {
+              const bookTitle = displayBookTitle(book.title);
+
+              return (
+                <Link key={book.slug} className="cover-link" href={`/books/${book.slug}`} aria-label={`Open details for ${bookTitle}`} prefetch={false}>
+                  <BookCover book={{ slug: book.slug, title: bookTitle, format: book.format, coverBlobPath: book.coverBlobPath, updatedAt: book.updatedAt }} />
+                </Link>
+              );
+            })}
           </div>
         ) : listMode === "titles" ? (
           <div className="library-list book-list">
-            {visibleBooks.map((book) => (
-              <Link key={book.slug} className="title-list-item" href={`/books/${book.slug}`} title={book.title} prefetch={false}>
-                <span className="title-list-title">{book.title}</span>
-                <span className="title-list-meta" aria-label={`${book.format}, ${book.pageCount.toLocaleString()} pages`}>
-                  <span className="title-list-format">{book.format}</span>
-                  <span>{book.pageCount.toLocaleString()} pages</span>
-                </span>
-              </Link>
-            ))}
+            {visibleBooks.map((book) => {
+              const bookTitle = displayBookTitle(book.title);
+
+              return (
+                <Link key={book.slug} className="title-list-item" href={`/books/${book.slug}`} title={bookTitle} prefetch={false}>
+                  <span className="title-list-title">{bookTitle}</span>
+                  <span className="title-list-meta" aria-label={`${book.format}, ${book.pageCount.toLocaleString()} pages`}>
+                    <span className="title-list-format">{book.format}</span>
+                    <span>{book.pageCount.toLocaleString()} pages</span>
+                  </span>
+                </Link>
+              );
+            })}
           </div>
         ) : (
           <div className="library-list author-list">
             {authorRows.slice(0, visibleCount).map(({ author, count }) => (
-              <Link key={authorPath(author)} className="list-item author-list-item" href={authorPath(author)} aria-label={`View books by ${author}`} prefetch={false}>
-                <span>{author}</span>
+              <Link key={authorPath(author)} className="list-item author-list-item" href={authorPath(author)} aria-label={`View books by ${displayAuthorName(author)}`} prefetch={false}>
+                <span>{displayAuthorName(author)}</span>
                 <span className="muted small">
                   {count} {count === 1 ? "book" : "books"}
                 </span>

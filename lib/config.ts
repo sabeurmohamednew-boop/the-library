@@ -71,6 +71,15 @@ export const LIBRARY_PAGE_SIZE = {
   cover: 96,
 } as const;
 
-export function categoryLabel(category: BookCategory) {
-  return BOOK_CATEGORIES.find((item) => item.value === category)?.label ?? category;
+function fallbackCategoryLabel(category: string) {
+  return category
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase()
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+export function categoryLabel(category: BookCategory | string) {
+  return BOOK_CATEGORIES.find((item) => item.value === category)?.label ?? fallbackCategoryLabel(category);
 }

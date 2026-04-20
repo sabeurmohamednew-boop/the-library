@@ -8,7 +8,7 @@ import { BookBookmarkButton } from "@/components/library/BookBookmarkButton";
 import { BookCover } from "@/components/library/BookCover";
 import { RuntimeNotice } from "@/components/RuntimeNotice";
 import { ShareButton } from "@/components/ShareButton";
-import { categoryLabel } from "@/lib/config";
+import { displayBookDescription, displayBookTitle, displayCategoryLabel, displayPublicationDate } from "@/lib/bookDisplay";
 import { safeGetBookBySlug, safeGetRelatedLibraryBooks } from "@/lib/books";
 import { bookCoverImage, bookDescription, bookPageTitle, decodeRouteParam, SITE_NAME } from "@/lib/seo";
 import { bookFileAvailable } from "@/lib/storage";
@@ -50,7 +50,8 @@ export async function generateMetadata({ params }: BookPageProps): Promise<Metad
   const description = bookDescription(book);
   const canonical = `/books/${book.slug}`;
   const coverImage = bookCoverImage(book);
-  const openGraphImages = coverImage ? [{ url: coverImage, alt: `Cover of ${book.title}` }] : undefined;
+  const bookTitle = displayBookTitle(book.title);
+  const openGraphImages = coverImage ? [{ url: coverImage, alt: `Cover of ${bookTitle}` }] : undefined;
 
   return {
     title,
@@ -89,6 +90,8 @@ export default async function BookPage({ params }: BookPageProps) {
   const relatedResult = await safeGetRelatedLibraryBooks(book.slug);
   const relatedBooks = relatedResult.ok ? relatedResult.data : [];
   const fileAvailable = bookFileAvailable(book);
+  const bookTitle = displayBookTitle(book.title);
+  const description = displayBookDescription(book.description);
 
   return (
     <main className="site-shell book-detail-page" id="main">
@@ -100,19 +103,19 @@ export default async function BookPage({ params }: BookPageProps) {
 
       <section className="details-grid" aria-labelledby="book-title">
         <div className="details-cover cover-frame">
-          <BookCover book={{ slug: book.slug, title: book.title, format: book.format, coverBlobPath: book.coverBlobPath, updatedAt: book.updatedAt }} />
+          <BookCover book={{ slug: book.slug, title: bookTitle, format: book.format, coverBlobPath: book.coverBlobPath, updatedAt: book.updatedAt }} />
         </div>
 
         <div className="details-content">
           <div>
             <p className="muted small">{book.format}</p>
-            <h1 id="book-title">{book.title}</h1>
+            <h1 id="book-title">{bookTitle}</h1>
             <p className="muted detail-authors">
               <AuthorLinks author={book.author} authors={book.authors} linkClassName="inline-author-link" prefix="By " />
             </p>
           </div>
 
-          <p className="details-description">{book.description}</p>
+          <p className="details-description">{description}</p>
 
           {!fileAvailable ? (
             <div className="error-state">The stored book file is currently unavailable. The metadata remains visible.</div>
@@ -122,7 +125,7 @@ export default async function BookPage({ params }: BookPageProps) {
           ) : null}
 
           <div className="action-row">
-            <BookActionLinks book={{ slug: book.slug, title: book.title, format: book.format }} downloadClassName="button" />
+            <BookActionLinks book={{ slug: book.slug, title: bookTitle, format: book.format }} downloadClassName="button" />
             <BookBookmarkButton slug={book.slug} />
             <ShareButton />
           </div>
@@ -138,7 +141,7 @@ export default async function BookPage({ params }: BookPageProps) {
             </div>
             <div className="metadata-item">
               <dt>Publication date</dt>
-              <dd>{formatDate(book.publicationDate)}</dd>
+              <dd>{displayPublicationDate(book.publicationDate)}</dd>
             </div>
             <div className="metadata-item">
               <dt>Upload date</dt>
@@ -146,7 +149,7 @@ export default async function BookPage({ params }: BookPageProps) {
             </div>
             <div className="metadata-item">
               <dt>Category</dt>
-              <dd>{categoryLabel(book.category)}</dd>
+              <dd>{displayCategoryLabel(book.category)}</dd>
             </div>
             <div className="metadata-item">
               <dt>File size</dt>

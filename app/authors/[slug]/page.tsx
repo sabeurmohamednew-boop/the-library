@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { BookCard } from "@/components/library/BookCard";
 import { RuntimeNotice } from "@/components/RuntimeNotice";
 import { authorSlug, matchingAuthorForSlug } from "@/lib/authors";
+import { displayAuthorName } from "@/lib/bookDisplay";
 import { safeGetBooksByAuthorSlug } from "@/lib/books";
 import { authorDescription, decodeRouteParam, SITE_NAME } from "@/lib/seo";
 
@@ -45,12 +46,13 @@ export async function generateMetadata({ params }: AuthorPageProps): Promise<Met
     };
   }
 
-  const description = authorDescription(author);
-  const canonical = `/authors/${authorSlug(author)}`;
-  const fullTitle = `${author} | ${SITE_NAME}`;
+  const authorName = displayAuthorName(author);
+  const description = authorDescription(authorName);
+  const canonical = `/authors/${authorSlug(authorName)}`;
+  const fullTitle = `${authorName} | ${SITE_NAME}`;
 
   return {
-    title: author,
+    title: authorName,
     description,
     alternates: {
       canonical,
@@ -81,7 +83,7 @@ export default async function AuthorPage({ params }: AuthorPageProps) {
   const books = result.data;
   if (books.length === 0) notFound();
 
-  const author = books.map((book) => matchingAuthorForSlug(book, decodeSlug(slug))).find(Boolean) ?? books[0].authors[0] ?? books[0].author;
+  const author = displayAuthorName(books.map((book) => matchingAuthorForSlug(book, decodeSlug(slug))).find(Boolean) ?? books[0].authors[0] ?? books[0].author);
 
   return (
     <main className="site-shell author-page" id="main">

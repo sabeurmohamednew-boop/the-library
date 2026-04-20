@@ -7,6 +7,7 @@ import { AdminLogin } from "@/components/admin/AdminLogin";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { BookCover } from "@/components/library/BookCover";
 import { adminPasswordConfigured, isAdminSession } from "@/lib/adminAuth";
+import { displayBookTitle } from "@/lib/bookDisplay";
 import { safeGetBookById } from "@/lib/books";
 import { blobStoreConfigured } from "@/lib/storage";
 
@@ -70,6 +71,7 @@ export default async function EditBookPage({ params }: EditBookPageProps) {
 
   const book = bookResult.data;
   if (!book) notFound();
+  const bookTitle = displayBookTitle(book.title);
   console.info("[admin-edit-page]", "loaded-book", {
     id: book.id,
     slug: book.slug,
@@ -82,7 +84,7 @@ export default async function EditBookPage({ params }: EditBookPageProps) {
       <div className="page-topline">
         <div>
           <h1 className="site-title">Edit book</h1>
-          <p className="muted small">{book.title}</p>
+          <p className="muted small">{bookTitle}</p>
           <p className="muted small">
             ID {book.id} - Slug {book.slug}
           </p>
@@ -96,7 +98,7 @@ export default async function EditBookPage({ params }: EditBookPageProps) {
             <BookCover book={book} />
           </div>
           <div className="section-heading">
-            <AdminDeleteButton id={book.id} title={book.title} />
+            <AdminDeleteButton id={book.id} title={bookTitle} />
           </div>
         </div>
         <AdminBookEditForm book={book} blobConfigured={blobStoreConfigured()} />

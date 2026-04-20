@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useState } from "react";
+import { displayBookTitle } from "@/lib/bookDisplay";
 import type { BookCoverDTO } from "@/lib/types";
 
 type BookCoverProps = {
@@ -17,6 +18,7 @@ function coverApiSrc(book: BookCoverProps["book"]) {
 
 export function BookCover({ book, className }: BookCoverProps) {
   const coverSrc = coverApiSrc(book);
+  const bookTitle = displayBookTitle(book.title);
   const [failedSrc, setFailedSrc] = useState<string | null>(null);
   const failed = failedSrc === coverSrc;
   const coverClassName = ["book-cover-image", className].filter(Boolean).join(" ");
@@ -32,7 +34,7 @@ export function BookCover({ book, className }: BookCoverProps) {
   return (
     <Image
       src={coverSrc}
-      alt={`Cover of ${book.title}`}
+      alt={`Cover of ${bookTitle}`}
       fill
       sizes="(max-width: 560px) 108px, (max-width: 860px) 33vw, 214px"
       className={coverClassName}

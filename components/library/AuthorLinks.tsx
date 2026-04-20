@@ -1,6 +1,7 @@
 import { Fragment } from "react";
 import Link from "next/link";
-import { authorPath, bookAuthors } from "@/lib/authors";
+import { authorPath } from "@/lib/authors";
+import { displayAuthorList } from "@/lib/bookDisplay";
 
 type AuthorLinksProps = {
   author: string;
@@ -11,7 +12,7 @@ type AuthorLinksProps = {
 };
 
 export function AuthorLinks({ author, authors, className = "", linkClassName = "", prefix = "" }: AuthorLinksProps) {
-  const names = bookAuthors({ author, authors });
+  const names = displayAuthorList({ author, authors });
   if (names.length === 0) return null;
 
   const classNames = ["author-links", className].filter(Boolean).join(" ");

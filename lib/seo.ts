@@ -1,4 +1,5 @@
 import type { BookDTO } from "@/lib/types";
+import { displayAuthorLabel, displayBookDescription, displayBookTitle } from "@/lib/bookDisplay";
 
 export const SITE_URL = "https://the-library-alpha.vercel.app";
 export const SITE_NAME = "The Library";
@@ -35,24 +36,26 @@ export function truncateDescription(value: string, maxLength = 160) {
 }
 
 export function bookAuthorLabel(book: Pick<BookDTO, "author" | "authors">) {
-  return book.authors.length > 0 ? book.authors.join(", ") : book.author;
+  return displayAuthorLabel(book);
 }
 
 export function bookPageTitle(book: Pick<BookDTO, "title" | "author" | "authors">) {
   const author = bookAuthorLabel(book);
-  return author ? `${book.title} by ${author}` : book.title;
+  const title = displayBookTitle(book.title);
+  return author && author !== "Unknown" ? `${title} by ${author}` : title;
 }
 
 export function bookDescription(book: Pick<BookDTO, "title" | "description" | "author" | "authors" | "format">) {
-  const description = cleanDescription(book.description);
+  const description = cleanDescription(displayBookDescription(book.description));
   if (description) return truncateDescription(description);
 
   const author = bookAuthorLabel(book);
-  return `Read details for ${book.title}${author ? ` by ${author}` : ""}, available as ${book.format}, in The Library.`;
+  const title = displayBookTitle(book.title);
+  return `Read details for ${title}${author && author !== "Unknown" ? ` by ${author}` : ""}, available as ${book.format}, in The Library.`;
 }
 
 export function authorDescription(author: string) {
-  return `Browse books by ${author} in The Library.`;
+  return `Browse books by ${displayAuthorLabel({ author })} in The Library.`;
 }
 
 export function bookCoverImage(book: Pick<BookDTO, "coverBlobUrl">) {

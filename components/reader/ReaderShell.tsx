@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { trackReaderOpened } from "@/lib/analytics";
+import { displayAuthorLabel, displayBookTitle } from "@/lib/bookDisplay";
 import { DEFAULT_READER_PREFERENCES } from "@/lib/config";
 import { loadReaderState, saveReaderState, setBookBookmarked } from "@/lib/clientStorage";
 import { importReaderAnnotationsFromJson } from "@/lib/readerAnnotationImport";
@@ -53,6 +54,7 @@ const useClientLayoutEffect = typeof window === "undefined" ? useEffect : useLay
 
 type ReaderShellProps = {
   book: ReaderBookDTO;
+  onShellReady?: () => void;
 };
 
 type Panel = "toc" | "bookmarks" | "annotations" | "settings" | "search" | "position" | "audio" | "info" | "menu" | null;
@@ -292,7 +294,7 @@ function resolveVoiceOption(voiceOptions: VoiceOption[], selectedId: string | un
   );
 }
 
-export function ReaderShell({ book }: ReaderShellProps) {
+export function ReaderShell({ book, onShellReady }: ReaderShellProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const overlayTimer = useRef<number | null>(null);
   const wheelZoomFrame = useRef<number | null>(null);
@@ -333,7 +335,12 @@ export function ReaderShell({ book }: ReaderShellProps) {
   const [speaking, setSpeaking] = useState(false);
   const [speechPaused, setSpeechPaused] = useState(false);
 
+  useClientLayoutEffect(() => {
+    onShellReady?.();
+  }, [onShellReady]);
+
   const fileUrl = `/api/books/${book.slug}/file`;
+  const bookTitle = displayBookTitle(book.title);
   const progressPercent = Math.round((state.progress || 0) * 100);
   const currentLocator = useMemo(() => currentLocatorFor(book, state), [book, state]);
   const progressDisplay = formatReaderProgressDisplay(state.progressDisplay, state, book, toc);
@@ -1294,8 +1301,8 @@ export function ReaderShell({ book }: ReaderShellProps) {
           </Link>
         </div>
 
-        <div className="reader-title" title={book.title}>
-          {book.title}
+        <div className="reader-title" title={bookTitle}>
+          {bookTitle}
         </div>
 
         <div className="reader-actions">
@@ -1387,7 +1394,7 @@ export function ReaderShell({ book }: ReaderShellProps) {
       <main className={panel ? "reader-main panel-open" : "reader-main"} id="main">
         <section className="reader-stage" aria-label={`${book.format} reader${engineStatus.phase === "ready" ? "" : `, ${engineStatus.message}`}`}>
           {!hydrated ? (
-            <ReaderLoadingFrame detail="Restoring your reading position." />
+            <ReaderLoadingFrame title={`Opening ${book.format}`} detail={`Restoring your place in ${bookTitle}.`} />
           ) : (
             <ReaderErrorBoundary downloadUrl={fileUrl} resetKey={`${book.slug}:${book.format}:${error}`}>
               <Engine
@@ -2060,11 +2067,14 @@ function BookInfoPanel({
   importReaderData: (file: File) => Promise<void>;
   importStatus: ImportStatus;
 }) {
+  const bookTitle = displayBookTitle(book.title);
+  const authorLabel = displayAuthorLabel({ author: book.author });
+
   return (
     <div className="settings-grid">
       <div className="book-info-panel">
-        <h3>{book.title}</h3>
-        <p>{book.author}</p>
+        <h3>{bookTitle}</h3>
+        <p>{authorLabel}</p>
         <dl>
           <div>
             <dt>Format</dt>
