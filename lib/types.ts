@@ -2,6 +2,7 @@ export type BookFormat = "PDF" | "EPUB";
 export type BookCategory =
   | "SELF_IMPROVEMENT"
   | "PHILOSOPHY"
+  | "PHILOSOPHICAL_FICTION"
   | "PSYCHOLOGY_BEHAVIOR"
   | "FINANCE_BUSINESS"
   | "STRATEGY_POWER"

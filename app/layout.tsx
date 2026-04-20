@@ -14,9 +14,9 @@ const inter = Inter({
   display: "swap",
 });
 
-const globalTitle = "The Library – Self-Hosted EPUB & PDF Reading Platform";
+const globalTitle = "The Library – Read, Track and Manage EPUB & PDF Books";
 const globalDescription =
-  "A minimalist self-hosted reading platform to read, manage, organize, and track your books. Supports EPUB and PDF with a clean, distraction-free interface.";
+  "Read EPUB and PDF books, track progress, save notes and highlights, and manage your personal library in a fast, minimalist reading app.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),

@@ -2,9 +2,9 @@ import type { BookDTO } from "@/lib/types";
 
 export const SITE_URL = "https://the-library-alpha.vercel.app";
 export const SITE_NAME = "The Library";
-export const SITE_TITLE = "The Library – Self-Hosted Reading App";
+export const SITE_TITLE = "The Library – Read, Track and Manage EPUB & PDF Books";
 export const SITE_DESCRIPTION =
-  "A minimalist self-hosted reading platform to read, manage, organize, and track books with EPUB and PDF support.";
+  "Read EPUB and PDF books, track progress, save notes and highlights, and manage your personal library in a fast, minimalist reading app.";
 export const SITE_CATEGORY = "Books";
 export const SITEMAP_FALLBACK_DATE = new Date("2026-01-01T00:00:00.000Z");
 

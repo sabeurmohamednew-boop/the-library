@@ -14,6 +14,7 @@ type SampleBook = {
   category:
     | "SELF_IMPROVEMENT"
     | "PHILOSOPHY"
+    | "PHILOSOPHICAL_FICTION"
     | "PSYCHOLOGY_BEHAVIOR"
     | "FINANCE_BUSINESS"
     | "STRATEGY_POWER"

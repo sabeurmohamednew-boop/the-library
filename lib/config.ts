@@ -16,6 +16,7 @@ export const BOOK_FORMATS: { value: BookFormat; label: string }[] = [
 export const BOOK_CATEGORY_VALUES = [
   "SELF_IMPROVEMENT",
   "PHILOSOPHY",
+  "PHILOSOPHICAL_FICTION",
   "PSYCHOLOGY_BEHAVIOR",
   "FINANCE_BUSINESS",
   "STRATEGY_POWER",
@@ -25,6 +26,7 @@ export const BOOK_CATEGORY_VALUES = [
 export const BOOK_CATEGORIES: { value: BookCategory; label: string }[] = [
   { value: "SELF_IMPROVEMENT", label: "Self-Improvement" },
   { value: "PHILOSOPHY", label: "Philosophy" },
+  { value: "PHILOSOPHICAL_FICTION", label: "Philosophical Fiction" },
   { value: "PSYCHOLOGY_BEHAVIOR", label: "Psychology & Behavior" },
   { value: "FINANCE_BUSINESS", label: "Finance & Business" },
   { value: "STRATEGY_POWER", label: "Strategy & Power" },

@@ -236,6 +236,7 @@ Categories:
 
 - Self-Improvement
 - Philosophy
+- Philosophical Fiction
 - Psychology & Behavior
 - Finance & Business
 - Strategy & Power
