@@ -1,13 +1,16 @@
 import "server-only";
 
+import { Prisma } from "@prisma/client";
 import type { Book } from "@prisma/client";
 import { unstable_noStore as noStore } from "next/cache";
 import { prisma } from "@/lib/db";
 import { authorSlug, bookAuthors, bookHasAuthorSlug, normalizeAuthorsForStorage } from "@/lib/authors";
+import { publicationDateIsoFromYear } from "@/lib/publicationYear";
 import { safeRuntime } from "@/lib/runtime";
 import type { BookDTO, LibraryBookDTO, ReaderBookDTO } from "@/lib/types";
 
 type BookIdentity = Pick<Book, "id" | "slug" | "title" | "author">;
+type PublicationDateYear = { publicationDateYear?: number | null };
 
 function bookIdentity(book: BookIdentity) {
   return {
@@ -22,7 +25,46 @@ function logBookRead(scope: string, data: Record<string, unknown>) {
   console.info("[book-read]", scope, data);
 }
 
-export function serializeBook(book: Book): BookDTO {
+function publicationDateIso(book: Pick<Book, "publicationDate"> & PublicationDateYear) {
+  if (!Number.isNaN(book.publicationDate.getTime())) {
+    return book.publicationDate.toISOString();
+  }
+
+  if (typeof book.publicationDateYear === "number") {
+    return publicationDateIsoFromYear(book.publicationDateYear);
+  }
+
+  throw new Error("Book publication date is invalid.");
+}
+
+export async function withPublicationYears<T extends { id: string; publicationDate: Date }>(books: T[]) {
+  if (books.length === 0) return books as (T & PublicationDateYear)[];
+
+  const rows = await prisma.$queryRaw<{ id: string; publicationDateYear: number }[]>`
+    SELECT "id", EXTRACT(YEAR FROM "publicationDate")::int AS "publicationDateYear"
+    FROM "Book"
+    WHERE "id" IN (${Prisma.join(books.map((book) => book.id))})
+  `;
+  const yearById = new Map(rows.map((row) => [row.id, row.publicationDateYear]));
+
+  return books.map((book) => ({
+    ...book,
+    publicationDateYear: yearById.get(book.id),
+  }));
+}
+
+export async function publicationYearForBookId(id: string) {
+  const rows = await prisma.$queryRaw<{ publicationDateYear: number }[]>`
+    SELECT EXTRACT(YEAR FROM "publicationDate")::int AS "publicationDateYear"
+    FROM "Book"
+    WHERE "id" = ${id}
+    LIMIT 1
+  `;
+
+  return rows[0]?.publicationDateYear ?? null;
+}
+
+export function serializeBook(book: Book & PublicationDateYear): BookDTO {
   const author = normalizeAuthorsForStorage(book.author);
 
   return {
@@ -35,7 +77,7 @@ export function serializeBook(book: Book): BookDTO {
     format: book.format as BookDTO["format"],
     category: book.category as BookDTO["category"],
     pageCount: book.pageCount,
-    publicationDate: book.publicationDate.toISOString(),
+    publicationDate: publicationDateIso(book),
     uploadDate: book.uploadDate.toISOString(),
     bookBlobUrl: book.bookBlobUrl,
     bookBlobPath: book.bookBlobPath,
@@ -49,10 +91,10 @@ export function serializeBook(book: Book): BookDTO {
   };
 }
 
-type LibraryBookRecord = Pick<Book, "slug" | "title" | "description" | "author" | "format" | "category" | "pageCount" | "publicationDate" | "uploadDate" | "coverBlobPath" | "updatedAt">;
+type LibraryBookRecord = Pick<Book, "id" | "slug" | "title" | "description" | "author" | "format" | "category" | "pageCount" | "publicationDate" | "uploadDate" | "coverBlobPath" | "updatedAt">;
 type ReaderBookRecord = Pick<Book, "id" | "slug" | "title" | "author" | "format" | "pageCount">;
 
-export function serializeLibraryBook(book: LibraryBookRecord): LibraryBookDTO {
+export function serializeLibraryBook(book: LibraryBookRecord & PublicationDateYear): LibraryBookDTO {
   const author = normalizeAuthorsForStorage(book.author);
 
   return {
@@ -64,7 +106,7 @@ export function serializeLibraryBook(book: LibraryBookRecord): LibraryBookDTO {
     format: book.format as LibraryBookDTO["format"],
     category: book.category as LibraryBookDTO["category"],
     pageCount: book.pageCount,
-    publicationDate: book.publicationDate.toISOString(),
+    publicationDate: publicationDateIso(book),
     uploadDate: book.uploadDate.toISOString(),
     coverBlobPath: book.coverBlobPath,
     updatedAt: book.updatedAt.toISOString(),
@@ -83,6 +125,7 @@ export function serializeReaderBook(book: ReaderBookRecord): ReaderBookDTO {
 }
 
 const libraryBookSelect = {
+  id: true,
   slug: true,
   title: true,
   description: true,
@@ -115,7 +158,7 @@ export async function getAllBooks() {
     books: books.map(bookIdentity),
   });
 
-  return books.map(serializeBook);
+  return (await withPublicationYears(books)).map(serializeBook);
 }
 
 export function safeGetAllBooks() {
@@ -137,7 +180,7 @@ export async function getAllLibraryBooks() {
     })),
   });
 
-  return books.map(serializeLibraryBook);
+  return (await withPublicationYears(books)).map(serializeLibraryBook);
 }
 
 export function safeGetAllLibraryBooks() {
@@ -154,7 +197,7 @@ export async function getBookBySlug(slug: string) {
     book: book ? bookIdentity(book) : null,
   });
 
-  return book ? serializeBook(book) : null;
+  return book ? serializeBook((await withPublicationYears([book]))[0]) : null;
 }
 
 export function safeGetBookBySlug(slug: string) {
@@ -189,7 +232,7 @@ export async function getBookById(id: string) {
     book: book ? bookIdentity(book) : null,
   });
 
-  return book ? serializeBook(book) : null;
+  return book ? serializeBook((await withPublicationYears([book]))[0]) : null;
 }
 
 export function safeGetBookById(id: string) {
@@ -200,6 +243,7 @@ export async function getRelatedBooks(slug: string) {
   noStore();
   const book = await prisma.book.findUnique({ where: { slug } });
   if (!book) return [];
+  const sourceBook = (await withPublicationYears([book]))[0];
 
   const books = await prisma.book.findMany({
     where: {
@@ -207,9 +251,10 @@ export async function getRelatedBooks(slug: string) {
     },
     orderBy: [{ author: "asc" }, { uploadDate: "desc" }],
   });
-  const source = serializeBook(book);
+  const booksWithYears = await withPublicationYears(books);
+  const source = serializeBook(sourceBook);
   const sourceAuthorSlugs = new Set(source.authors.map(authorSlug));
-  const filtered = books
+  const filtered = booksWithYears
     .map(serializeBook)
     .filter((candidate) => candidate.category === source.category || candidate.authors.some((author) => sourceAuthorSlugs.has(authorSlug(author))))
     .slice(0, 6);
@@ -229,6 +274,7 @@ export async function getRelatedLibraryBooks(slug: string) {
   noStore();
   const book = await prisma.book.findUnique({ where: { slug } });
   if (!book) return [];
+  const sourceBook = (await withPublicationYears([book]))[0];
 
   const books = await prisma.book.findMany({
     where: {
@@ -237,9 +283,10 @@ export async function getRelatedLibraryBooks(slug: string) {
     select: libraryBookSelect,
     orderBy: [{ author: "asc" }, { uploadDate: "desc" }],
   });
-  const source = serializeBook(book);
+  const booksWithYears = await withPublicationYears(books);
+  const source = serializeBook(sourceBook);
   const sourceAuthorSlugs = new Set(source.authors.map(authorSlug));
-  const filtered = books
+  const filtered = booksWithYears
     .map(serializeLibraryBook)
     .filter((candidate) => candidate.category === source.category || candidate.authors.some((author) => sourceAuthorSlugs.has(authorSlug(author))))
     .slice(0, 6);
@@ -271,7 +318,7 @@ export async function getBooksByAuthorSlug(slug: string) {
     books: filtered.map(bookIdentity),
   });
 
-  return filtered.map(serializeBook);
+  return (await withPublicationYears(filtered)).map(serializeBook);
 }
 
 export function safeGetBooksByAuthorSlug(slug: string) {

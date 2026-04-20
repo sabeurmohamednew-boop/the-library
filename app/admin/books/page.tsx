@@ -9,7 +9,7 @@ import { BOOK_CATEGORIES, BOOK_FORMATS } from "@/lib/config";
 import { adminPasswordConfigured, isAdminSession } from "@/lib/adminAuth";
 import { normalizeAuthorsForStorage } from "@/lib/authors";
 import { displayBookTitle, displayCategoryLabel, displayPublicationDate } from "@/lib/bookDisplay";
-import { serializeBook } from "@/lib/books";
+import { serializeBook, withPublicationYears } from "@/lib/books";
 import { prisma } from "@/lib/db";
 import { safeRuntime } from "@/lib/runtime";
 import { formatDate } from "@/lib/text";
@@ -68,21 +68,23 @@ export default async function AdminBooksPage({ searchParams }: AdminBooksPagePro
 
   const booksResult = await safeRuntime("admin.books", async () =>
     (
-      await prisma.book.findMany({
-        where: {
-          ...(format ? { format } : {}),
-          ...(category ? { category } : {}),
-          ...(query
-            ? {
-                OR: [
-                  { title: { contains: query } },
-                  { author: { contains: query } },
-                ],
-              }
-            : {}),
-        },
-        orderBy: [{ uploadDate: "desc" }, { title: "asc" }],
-      })
+      await withPublicationYears(
+        await prisma.book.findMany({
+          where: {
+            ...(format ? { format } : {}),
+            ...(category ? { category } : {}),
+            ...(query
+              ? {
+                  OR: [
+                    { title: { contains: query } },
+                    { author: { contains: query } },
+                  ],
+                }
+              : {}),
+          },
+          orderBy: [{ uploadDate: "desc" }, { title: "asc" }],
+        }),
+      )
     ).map(serializeBook),
   );
 

@@ -9,8 +9,9 @@ import {
   safeAdminError,
   validateReplacementFormat,
 } from "@/lib/adminBooks";
-import { serializeBook } from "@/lib/books";
+import { publicationYearForBookId, serializeBook, withPublicationYears } from "@/lib/books";
 import { prisma } from "@/lib/db";
+import { parsePublicationDateInput, postgresPublicationDateLiteralFromYear, publicationYearFromDate } from "@/lib/publicationYear";
 import { blobStoreConfigured, deleteBlobIfPresent, validateCoverBlob } from "@/lib/storage";
 import { bookUpdateSchema } from "@/lib/validation";
 import type { BookUpdateInput } from "@/lib/validation";
@@ -28,6 +29,22 @@ function blobPathsFromBody(body: unknown) {
     .map((key) => record[key])
     .filter((value): value is { pathname: string } => Boolean(value) && typeof value === "object" && typeof (value as { pathname?: unknown }).pathname === "string")
     .map((value) => value.pathname);
+}
+
+function bodyWithPublicationDate(body: unknown) {
+  if (!body || typeof body !== "object") return { ok: true as const, body };
+
+  const record = body as Record<string, unknown>;
+  const parsed = parsePublicationDateInput(record.publicationDate);
+  if (!parsed.ok) return { ok: false as const, error: parsed.error };
+
+  return {
+    ok: true as const,
+    body: {
+      ...record,
+      publicationDate: parsed.date,
+    },
+  };
 }
 
 function editLog(message: string, data?: Record<string, unknown>) {
@@ -74,6 +91,7 @@ function rowSummary(book: {
   pageCount: number;
   publicationDate: Date;
   updatedAt: Date;
+  publicationDateYear?: number | null;
 }) {
   return {
     id: book.id,
@@ -84,7 +102,11 @@ function rowSummary(book: {
     format: book.format,
     category: book.category,
     pageCount: book.pageCount,
-    publicationDate: book.publicationDate.toISOString(),
+    publicationDate: Number.isNaN(book.publicationDate.getTime())
+      ? typeof book.publicationDateYear === "number"
+        ? `year ${book.publicationDateYear}`
+        : "Invalid Date"
+      : book.publicationDate.toISOString(),
     updatedAt: book.updatedAt.toISOString(),
   };
 }
@@ -106,7 +128,13 @@ function metadataPersisted(
     coverContentType: string;
   },
   input: BookUpdateInput,
+  publicationDateYear?: number | null,
 ) {
+  const publicationDateMatches =
+    Number.isNaN(book.publicationDate.getTime())
+      ? publicationDateYear === publicationYearFromDate(input.publicationDate)
+      : book.publicationDate.getTime() === input.publicationDate.getTime();
+
   const metadataMatches =
     book.title === input.title &&
     book.description === input.description &&
@@ -114,7 +142,7 @@ function metadataPersisted(
     book.format === input.format &&
     book.category === input.category &&
     book.pageCount === input.pageCount &&
-    book.publicationDate.getTime() === input.publicationDate.getTime();
+    publicationDateMatches;
 
   const bookBlobMatches =
     !input.bookBlob || (book.bookBlobUrl === input.bookBlob.url && book.bookBlobPath === input.bookBlob.pathname && book.fileSize === input.bookBlob.size);
@@ -163,12 +191,19 @@ async function updateBook(request: Request, { params }: RouteContext) {
     if (!existing) {
       return NextResponse.json({ error: "Book not found." }, { status: 404 });
     }
-    editLog("existing-before-update", rowSummary(existing));
+    const existingPublicationYear = await publicationYearForBookId(id);
+    editLog("existing-before-update", rowSummary({ ...existing, publicationDateYear: existingPublicationYear }));
 
     const body = await request.json();
     editLog("incoming-payload", { id, ...payloadSummary(body) });
     uploadedPaths.push(...blobPathsFromBody(body));
-    const parsed = bookUpdateSchema.safeParse(body);
+    const normalizedBody = bodyWithPublicationDate(body);
+    if (!normalizedBody.ok) {
+      await Promise.all(uploadedPaths.map((pathname) => deleteBlobIfPresent(pathname)));
+      return NextResponse.json({ error: normalizedBody.error, fieldErrors: { publicationDate: [normalizedBody.error] } }, { status: 400 });
+    }
+
+    const parsed = bookUpdateSchema.safeParse(normalizedBody.body);
 
     if (!parsed.success) {
       await Promise.all(uploadedPaths.map((pathname) => deleteBlobIfPresent(pathname)));
@@ -199,22 +234,38 @@ async function updateBook(request: Request, { params }: RouteContext) {
       }
     }
 
+    const publicationYear = publicationYearFromDate(parsed.data.publicationDate);
+    const bookData = bookDataFromInput(parsed.data);
+    const { publicationDate, ...bookDataWithoutPublicationDate } = bookData;
     const updateData = {
-      ...bookDataFromInput(parsed.data),
+      ...(publicationYear < 0 ? bookDataWithoutPublicationDate : bookData),
       ...(parsed.data.bookBlob ? fileDataFromBlob(parsed.data.bookBlob, parsed.data.format) : {}),
       ...(parsed.data.coverBlob ? coverDataFromBlob(parsed.data.coverBlob) : {}),
     };
     editLog("normalized-update", { id, ...updateSummary(parsed.data), updateKeys: Object.keys(updateData) });
 
-    const updated = await prisma.book.update({
-      where: { id },
-      data: updateData,
+    const updated = await prisma.$transaction(async (tx) => {
+      const row = await tx.book.update({
+        where: { id },
+        data: updateData,
+      });
+
+      if (publicationYear >= 0) return row;
+
+      const publicationDateLiteral = postgresPublicationDateLiteralFromYear(publicationYear);
+      await tx.$executeRaw`UPDATE "Book" SET "publicationDate" = ${publicationDateLiteral}::timestamp WHERE "id" = ${id}`;
+      return {
+        ...row,
+        publicationDate,
+        publicationDateYear: publicationYear,
+      };
     });
     editLog("prisma-update-result", rowSummary(updated));
 
     const persisted = await prisma.book.findUnique({ where: { id } });
-    editLog("row-after-update", persisted ? rowSummary(persisted) : { id, found: false });
-    if (!persisted || !metadataPersisted(persisted, parsed.data)) {
+    const persistedWithYear = persisted ? (await withPublicationYears([persisted]))[0] : null;
+    editLog("row-after-update", persistedWithYear ? rowSummary(persistedWithYear) : { id, found: false });
+    if (!persistedWithYear || !metadataPersisted(persistedWithYear, parsed.data, persistedWithYear.publicationDateYear)) {
       editLog("persistence-verification-failed", {
         id,
         expected: updateSummary(parsed.data),
@@ -232,36 +283,37 @@ async function updateBook(request: Request, { params }: RouteContext) {
               contentType: parsed.data.coverBlob.contentType,
             }
           : null,
-        persisted: persisted
+        persisted: persistedWithYear
           ? {
-              title: persisted.title,
-              author: persisted.author,
-              format: persisted.format,
-              category: persisted.category,
-              pageCount: persisted.pageCount,
-              publicationDate: persisted.publicationDate.toISOString(),
-              bookBlobUrl: persisted.bookBlobUrl,
-              bookBlobPath: persisted.bookBlobPath,
-              fileSize: persisted.fileSize,
-              coverBlobUrl: persisted.coverBlobUrl,
-              coverBlobPath: persisted.coverBlobPath,
-              coverContentType: persisted.coverContentType,
+              title: persistedWithYear.title,
+              author: persistedWithYear.author,
+              format: persistedWithYear.format,
+              category: persistedWithYear.category,
+              pageCount: persistedWithYear.pageCount,
+              publicationDate: rowSummary(persistedWithYear).publicationDate,
+              bookBlobUrl: persistedWithYear.bookBlobUrl,
+              bookBlobPath: persistedWithYear.bookBlobPath,
+              fileSize: persistedWithYear.fileSize,
+              coverBlobUrl: persistedWithYear.coverBlobUrl,
+              coverBlobPath: persistedWithYear.coverBlobPath,
+              coverContentType: persistedWithYear.coverContentType,
             }
           : null,
       });
       throw new Error("Book update did not persist expected metadata.");
     }
 
-    const slugRow = await prisma.book.findUnique({ where: { slug: persisted.slug } });
-    editLog("slug-row-after-update", slugRow ? rowSummary(slugRow) : { slug: persisted.slug, found: false });
-    if (!slugRow || slugRow.id !== persisted.id) {
+    const slugRow = await prisma.book.findUnique({ where: { slug: persistedWithYear.slug } });
+    const slugRowWithYear = slugRow ? (await withPublicationYears([slugRow]))[0] : null;
+    editLog("slug-row-after-update", slugRowWithYear ? rowSummary(slugRowWithYear) : { slug: persistedWithYear.slug, found: false });
+    if (!slugRowWithYear || slugRowWithYear.id !== persistedWithYear.id) {
       throw new Error("Book update persisted, but slug lookup resolves to a different row.");
     }
 
     const duplicateRows = await prisma.book.findMany({
       where: {
-        title: persisted.title,
-        author: persisted.author,
+        title: persistedWithYear.title,
+        author: persistedWithYear.author,
       },
       select: { id: true, slug: true, title: true, author: true },
       orderBy: [{ uploadDate: "desc" }, { title: "asc" }],
@@ -277,19 +329,19 @@ async function updateBook(request: Request, { params }: RouteContext) {
       await deleteBlobIfPresent(existing.coverBlobPath);
     }
 
-    revalidateBookPaths(persisted, { slug: existing.slug, author: existing.author });
+    revalidateBookPaths(persistedWithYear, { slug: existing.slug, author: existing.author });
     editLog("verified-update-result", {
-      id: persisted.id,
-      slug: persisted.slug,
-      title: persisted.title,
-      author: persisted.author,
-      updatedAt: persisted.updatedAt.toISOString(),
+      id: persistedWithYear.id,
+      slug: persistedWithYear.slug,
+      title: persistedWithYear.title,
+      author: persistedWithYear.author,
+      updatedAt: persistedWithYear.updatedAt.toISOString(),
     });
 
-    return NextResponse.json({ ok: true, book: serializeBook(persisted) });
+    return NextResponse.json({ ok: true, book: serializeBook(persistedWithYear) });
   } catch (error) {
     await Promise.all(uploadedPaths.map((pathname) => deleteBlobIfPresent(pathname)));
-    return NextResponse.json({ error: safeAdminError(error, "The book could not be updated.") }, { status: 500 });
+    return NextResponse.json({ error: safeAdminError(error, error instanceof Error ? error.message : "The book could not be updated.") }, { status: 500 });
   }
 }
 

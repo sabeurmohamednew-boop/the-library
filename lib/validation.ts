@@ -1,41 +1,20 @@
 import { z } from "zod";
 import { normalizeAuthorsForStorage } from "@/lib/authors";
 import { BOOK_CATEGORY_VALUES } from "@/lib/config";
-import { dateFromPublicationYear, parsePublicationYearInput } from "@/lib/publicationYear";
+import { parsePublicationDateInput } from "@/lib/publicationYear";
 
 const authorSchema = z
   .string()
   .transform((value) => normalizeAuthorsForStorage(value))
   .pipe(z.string().min(1, "Author is required.").max(240));
 
-function normalizeHistoricalDateString(value: string) {
-  return value.replace(/^-(\d{4})(?=-)/, (_match, year: string) => `-${year.padStart(6, "0")}`);
-}
-
 const publicationDateSchema = z.any().transform((value, context) => {
-  if (value instanceof Date && !Number.isNaN(value.getTime())) return value;
-
-  if (typeof value === "number" && Number.isSafeInteger(value)) {
-    return dateFromPublicationYear(value);
+  const parsed = parsePublicationDateInput(value);
+  if (parsed.ok) {
+    return parsed.date;
   }
 
-  if (typeof value === "string") {
-    const trimmed = value.trim();
-    const parsedYear = parsePublicationYearInput(trimmed);
-
-    if (parsedYear.ok && parsedYear.date) return parsedYear.date;
-    if (parsedYear.ok && !parsedYear.date) {
-      context.addIssue({ code: "custom", message: "Publication year is required." });
-      return new Date(NaN);
-    }
-
-    if (/^-?\d{4,6}-\d{2}-\d{2}/.test(trimmed)) {
-      const date = new Date(normalizeHistoricalDateString(trimmed));
-      if (!Number.isNaN(date.getTime())) return date;
-    }
-  }
-
-  context.addIssue({ code: "custom", message: "Invalid year" });
+  context.addIssue({ code: "custom", message: parsed.error });
   return new Date(NaN);
 });
 
