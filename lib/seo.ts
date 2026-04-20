@@ -4,7 +4,7 @@ export const SITE_URL = "https://the-library-alpha.vercel.app";
 export const SITE_NAME = "The Library";
 export const SITE_TITLE = "The Library – Read, Track and Manage EPUB & PDF Books";
 export const SITE_DESCRIPTION =
-  "Read EPUB and PDF books, track progress, save notes and highlights, and manage your personal library in a fast, minimalist reading app.";
+  "Read EPUB and PDF books, track progress, save notes and highlights, and manage your personal library in a fast, minimalist reading app built for focus.";
 export const SITE_CATEGORY = "Books";
 export const SITEMAP_FALLBACK_DATE = new Date("2026-01-01T00:00:00.000Z");
 

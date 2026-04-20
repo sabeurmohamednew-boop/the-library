@@ -16,7 +16,7 @@ const inter = Inter({
 
 const globalTitle = "The Library – Read, Track and Manage EPUB & PDF Books";
 const globalDescription =
-  "Read EPUB and PDF books, track progress, save notes and highlights, and manage your personal library in a fast, minimalist reading app.";
+  "Read EPUB and PDF books, track progress, save notes and highlights, and manage your personal library in a fast, minimalist reading app built for focus.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
