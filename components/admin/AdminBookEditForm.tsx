@@ -8,6 +8,7 @@ import { markLibraryContentChanged } from "@/lib/clientFreshness";
 import type { BookDTO } from "@/lib/types";
 import { formatDate } from "@/lib/text";
 import { uploadAdminBlob } from "@/lib/clientUploads";
+import { publicationYearInputError, publicationYearInputValue, sanitizePublicationYearInput } from "@/lib/publicationYear";
 
 type FieldErrors = Record<string, string[] | undefined>;
 
@@ -15,10 +16,6 @@ type AdminBookEditFormProps = {
   book: BookDTO;
   blobConfigured: boolean;
 };
-
-function dateInputValue(value: string) {
-  return new Date(value).toISOString().slice(0, 10);
-}
 
 export function AdminBookEditForm({ book, blobConfigured }: AdminBookEditFormProps) {
   const router = useRouter();
@@ -30,6 +27,7 @@ export function AdminBookEditForm({ book, blobConfigured }: AdminBookEditFormPro
   const [submitting, setSubmitting] = useState(false);
   const [replacementBook, setReplacementBook] = useState<File | null>(null);
   const [replacementCover, setReplacementCover] = useState<File | null>(null);
+  const [publicationYear, setPublicationYear] = useState(() => publicationYearInputValue(book.publicationDate));
 
   function handleFileChange(event: ChangeEvent<HTMLInputElement>, kind: "book" | "cover") {
     const file = event.target.files?.[0] ?? null;
@@ -48,10 +46,19 @@ export function AdminBookEditForm({ book, blobConfigured }: AdminBookEditFormPro
     setSaved(null);
 
     const formData = new FormData(event.currentTarget);
+    formData.set("publicationDate", publicationYear.trim());
 
     if (!blobConfigured && (replacementBook?.size || replacementCover?.size)) {
       setSubmitting(false);
       setError("Vercel Blob is not configured. Add BLOB_READ_WRITE_TOKEN before replacing files.");
+      return;
+    }
+
+    const publicationYearError = publicationYearInputError(publicationYear);
+    if (publicationYearError) {
+      setSubmitting(false);
+      setFieldErrors({ publicationDate: [publicationYearError] });
+      setError("Please fix the highlighted fields.");
       return;
     }
 
@@ -68,7 +75,7 @@ export function AdminBookEditForm({ book, blobConfigured }: AdminBookEditFormPro
         format: String(formData.get("format") ?? ""),
         category: String(formData.get("category") ?? ""),
         pageCount: String(formData.get("pageCount") ?? ""),
-        publicationDate: String(formData.get("publicationDate") ?? ""),
+        publicationDate: publicationYear.trim(),
         ...(bookBlob ? { bookBlob } : {}),
         ...(coverBlob ? { coverBlob } : {}),
       };
@@ -101,6 +108,7 @@ export function AdminBookEditForm({ book, blobConfigured }: AdminBookEditFormPro
       }
 
       setSaved(responsePayload.book);
+      setPublicationYear(publicationYearInputValue(responsePayload.book.publicationDate));
       markLibraryContentChanged(responsePayload.book.updatedAt);
       setReplacementBook(null);
       setReplacementCover(null);
@@ -115,6 +123,11 @@ export function AdminBookEditForm({ book, blobConfigured }: AdminBookEditFormPro
 
   function fieldError(name: string) {
     return fieldErrors[name]?.[0] ? <span className="field-error">{fieldErrors[name]?.[0]}</span> : null;
+  }
+
+  function handlePublicationYearChange(value: string) {
+    const nextValue = sanitizePublicationYearInput(value);
+    if (nextValue !== null) setPublicationYear(nextValue);
   }
 
   const current = saved ?? book;
@@ -196,8 +209,18 @@ export function AdminBookEditForm({ book, blobConfigured }: AdminBookEditFormPro
         </label>
 
         <label className="label">
-          Publication date
-          <input className="field" name="publicationDate" type="date" defaultValue={dateInputValue(current.publicationDate)} required />
+          Publication year
+          <input
+            className="field"
+            name="publicationDate"
+            type="text"
+            inputMode="numeric"
+            pattern="-?[0-9]*"
+            value={publicationYear}
+            onChange={(event) => handlePublicationYearChange(event.target.value)}
+            placeholder="2018"
+          />
+          <span className="muted small">Use negative values for BC (e.g. -500 = 500 BC)</span>
           {fieldError("publicationDate")}
         </label>
 
