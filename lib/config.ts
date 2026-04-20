@@ -13,9 +13,22 @@ export const BOOK_FORMATS: { value: BookFormat; label: string }[] = [
   { value: "EPUB", label: "EPUB" },
 ];
 
+export const BOOK_CATEGORY_VALUES = [
+  "SELF_IMPROVEMENT",
+  "PHILOSOPHY",
+  "PSYCHOLOGY_BEHAVIOR",
+  "FINANCE_BUSINESS",
+  "STRATEGY_POWER",
+  "ADDICTION_RECOVERY",
+] as const;
+
 export const BOOK_CATEGORIES: { value: BookCategory; label: string }[] = [
-  { value: "SELF_IMPROVEMENT", label: "Self-improvement" },
-  { value: "NOFAP", label: "Nofap" },
+  { value: "SELF_IMPROVEMENT", label: "Self-Improvement" },
+  { value: "PHILOSOPHY", label: "Philosophy" },
+  { value: "PSYCHOLOGY_BEHAVIOR", label: "Psychology & Behavior" },
+  { value: "FINANCE_BUSINESS", label: "Finance & Business" },
+  { value: "STRATEGY_POWER", label: "Strategy & Power" },
+  { value: "ADDICTION_RECOVERY", label: "Addiction & Recovery" },
 ];
 
 export const DEFAULT_READER_PREFERENCES: ReaderPreferences = {

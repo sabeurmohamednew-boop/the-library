@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { normalizeAuthorsForStorage } from "@/lib/authors";
+import { BOOK_CATEGORY_VALUES } from "@/lib/config";
 
 const authorSchema = z
   .string()
@@ -11,7 +12,7 @@ export const bookImportSchema = z.object({
   description: z.string().trim().min(1, "Description is required.").max(5000),
   author: authorSchema,
   format: z.enum(["PDF", "EPUB"]),
-  category: z.enum(["SELF_IMPROVEMENT", "NOFAP"]),
+  category: z.enum(BOOK_CATEGORY_VALUES),
   pageCount: z.coerce.number().int().min(1, "Page count is required.").max(100000),
   publicationDate: z.coerce.date(),
 });

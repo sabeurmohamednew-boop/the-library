@@ -11,7 +11,13 @@ type SampleBook = {
   description: string;
   author: string;
   format: "PDF" | "EPUB";
-  category: "SELF_IMPROVEMENT" | "NOFAP";
+  category:
+    | "SELF_IMPROVEMENT"
+    | "PHILOSOPHY"
+    | "PSYCHOLOGY_BEHAVIOR"
+    | "FINANCE_BUSINESS"
+    | "STRATEGY_POWER"
+    | "ADDICTION_RECOVERY";
   pageCount: number;
   publicationDate: string;
   coverPalette: [number, number, number][];
@@ -95,7 +101,7 @@ const samples: SampleBook[] = [
       "A calm journal-style EPUB for tracking triggers, urges, sleep, movement, and replacement habits during a reset period.",
     author: "Nolan Reed",
     format: "EPUB",
-    category: "NOFAP",
+    category: "ADDICTION_RECOVERY",
     pageCount: 126,
     publicationDate: "2024-05-22T00:00:00.000Z",
     coverPalette: [
@@ -117,7 +123,7 @@ const samples: SampleBook[] = [
       "A simple PDF workbook about noticing urges as temporary body states, with short timed exercises and reflection prompts.",
     author: "Nolan Reed",
     format: "PDF",
-    category: "NOFAP",
+    category: "ADDICTION_RECOVERY",
     pageCount: 7,
     publicationDate: "2023-11-09T00:00:00.000Z",
     coverPalette: [
@@ -142,7 +148,7 @@ const samples: SampleBook[] = [
       "A compact EPUB about planning a clean week: sleep anchors, screen boundaries, accountability, and reading as a replacement rhythm.",
     author: "Isa Chen",
     format: "EPUB",
-    category: "NOFAP",
+    category: "ADDICTION_RECOVERY",
     pageCount: 88,
     publicationDate: "2022-01-14T00:00:00.000Z",
     coverPalette: [

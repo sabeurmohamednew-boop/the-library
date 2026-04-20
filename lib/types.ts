@@ -1,5 +1,11 @@
 export type BookFormat = "PDF" | "EPUB";
-export type BookCategory = "SELF_IMPROVEMENT" | "NOFAP";
+export type BookCategory =
+  | "SELF_IMPROVEMENT"
+  | "PHILOSOPHY"
+  | "PSYCHOLOGY_BEHAVIOR"
+  | "FINANCE_BUSINESS"
+  | "STRATEGY_POWER"
+  | "ADDICTION_RECOVERY";
 
 export type BlobDescriptor = {
   url: string;

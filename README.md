@@ -234,8 +234,12 @@ The database stores:
 
 Categories:
 
-- Self-improvement
-- Nofap
+- Self-Improvement
+- Philosophy
+- Psychology & Behavior
+- Finance & Business
+- Strategy & Power
+- Addiction & Recovery
 
 Formats:
 
