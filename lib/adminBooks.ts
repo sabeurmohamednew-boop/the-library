@@ -46,6 +46,7 @@ export function bookDataFromInput(input: BookImportInput) {
     category: input.category,
     pageCount: input.pageCount,
     publicationDate: input.publicationDate,
+    publicationDatePrecision: input.publicationDatePrecision,
     searchText: buildBookSearchText({ ...input, author }),
   };
 }

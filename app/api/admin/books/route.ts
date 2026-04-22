@@ -42,6 +42,7 @@ function bodyWithPublicationDate(body: unknown) {
     body: {
       ...record,
       publicationDate: parsed.date,
+      publicationDatePrecision: parsed.precision,
     },
   };
 }

@@ -1,4 +1,5 @@
 export type BookFormat = "PDF" | "EPUB";
+export type PublicationDatePrecision = "YEAR" | "DAY";
 export type BookCategory =
   | "SELF_IMPROVEMENT"
   | "PHILOSOPHY"
@@ -26,6 +27,7 @@ export type BookDTO = {
   category: BookCategory;
   pageCount: number;
   publicationDate: string;
+  publicationDatePrecision: PublicationDatePrecision;
   uploadDate: string;
   bookBlobUrl: string;
   bookBlobPath: string;
@@ -42,7 +44,7 @@ export type BookCoverDTO = Pick<BookDTO, "slug" | "title" | "format"> & Partial<
 
 export type LibraryBookDTO = Pick<
   BookDTO,
-  "slug" | "title" | "description" | "author" | "authors" | "format" | "category" | "pageCount" | "publicationDate" | "uploadDate" | "coverBlobPath" | "updatedAt"
+  "slug" | "title" | "description" | "author" | "authors" | "format" | "category" | "pageCount" | "publicationDate" | "publicationDatePrecision" | "uploadDate" | "coverBlobPath" | "updatedAt"
 >;
 
 export type ReaderBookDTO = Pick<BookDTO, "id" | "slug" | "title" | "author" | "format" | "pageCount">;

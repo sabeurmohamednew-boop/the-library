@@ -6,7 +6,7 @@ import { BOOK_CATEGORIES, BOOK_FORMATS } from "@/lib/config";
 import { normalizeAuthorsForStorage } from "@/lib/authors";
 import { markLibraryContentChanged } from "@/lib/clientFreshness";
 import { uploadAdminBlob } from "@/lib/clientUploads";
-import { publicationYearInputError, sanitizePublicationYearInput } from "@/lib/publicationYear";
+import { publicationDateInputError, sanitizePublicationYearInput } from "@/lib/publicationYear";
 import type { BookDTO } from "@/lib/types";
 
 type FieldErrors = Record<string, string[] | undefined>;
@@ -28,7 +28,7 @@ export function AdminImportForm({ blobConfigured }: AdminImportFormProps) {
   const [title, setTitle] = useState("");
   const [author, setAuthor] = useState("");
   const [pageCount, setPageCount] = useState("");
-  const [publicationYear, setPublicationYear] = useState("");
+  const [publicationDate, setPublicationDate] = useState("");
   const [format, setFormat] = useState("PDF");
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
@@ -60,7 +60,7 @@ export function AdminImportForm({ blobConfigured }: AdminImportFormProps) {
     formData.set("title", title);
     formData.set("author", author);
     formData.set("pageCount", pageCount);
-    formData.set("publicationDate", publicationYear.trim());
+    formData.set("publicationDate", publicationDate.trim());
     formData.set("format", format);
 
     const bookFile = formData.get("bookFile") as File | null;
@@ -72,8 +72,8 @@ export function AdminImportForm({ blobConfigured }: AdminImportFormProps) {
     if (!title.trim()) nextFieldErrors.title = ["Title is required."];
     if (!normalizeAuthorsForStorage(author)) nextFieldErrors.author = ["Author is required."];
     if (!pageCount || Number(pageCount) < 1) nextFieldErrors.pageCount = ["Page count is required."];
-    const publicationYearError = publicationYearInputError(publicationYear);
-    if (publicationYearError) nextFieldErrors.publicationDate = [publicationYearError];
+    const publicationDateError = publicationDateInputError(publicationDate);
+    if (publicationDateError) nextFieldErrors.publicationDate = [publicationDateError];
     if (bookFile?.size) {
       const lower = bookFile.name.toLowerCase();
       if ((format === "PDF" && !lower.endsWith(".pdf")) || (format === "EPUB" && !lower.endsWith(".epub"))) {
@@ -104,7 +104,7 @@ export function AdminImportForm({ blobConfigured }: AdminImportFormProps) {
           format,
           category: String(formData.get("category") ?? ""),
           pageCount,
-          publicationDate: publicationYear.trim(),
+          publicationDate: publicationDate.trim(),
           bookBlob,
           coverBlob,
         }),
@@ -125,7 +125,7 @@ export function AdminImportForm({ blobConfigured }: AdminImportFormProps) {
       setTitle("");
       setAuthor("");
       setPageCount("");
-      setPublicationYear("");
+      setPublicationDate("");
       setFormat("PDF");
     } catch (uploadError) {
       setSubmitting(false);
@@ -137,9 +137,9 @@ export function AdminImportForm({ blobConfigured }: AdminImportFormProps) {
     return fieldErrors[name]?.[0] ? <span className="field-error">{fieldErrors[name]?.[0]}</span> : null;
   }
 
-  function handlePublicationYearChange(value: string) {
+  function handlePublicationDateChange(value: string) {
     const nextValue = sanitizePublicationYearInput(value);
-    if (nextValue !== null) setPublicationYear(nextValue);
+    if (nextValue !== null) setPublicationDate(nextValue);
   }
 
   return (
@@ -201,18 +201,17 @@ export function AdminImportForm({ blobConfigured }: AdminImportFormProps) {
         </label>
 
         <label className="label">
-          Publication year
+          Publication date
           <input
             className="field"
             name="publicationDate"
             type="text"
             inputMode="numeric"
-            pattern="-?[0-9]*"
-            value={publicationYear}
-            onChange={(event) => handlePublicationYearChange(event.target.value)}
-            placeholder="2018"
+            value={publicationDate}
+            onChange={(event) => handlePublicationDateChange(event.target.value)}
+            placeholder="2018 or 15/11/2018"
           />
-          <span className="muted small">Use negative values for BC (e.g. -500 = 500 BC)</span>
+          <span className="muted small">Use a year, dd/mm/yyyy, or a negative year for BC (e.g. -500 = 500 BC)</span>
           {fieldError("publicationDate")}
         </label>
 

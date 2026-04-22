@@ -43,6 +43,7 @@ function bodyWithPublicationDate(body: unknown) {
     body: {
       ...record,
       publicationDate: parsed.date,
+      publicationDatePrecision: parsed.precision,
     },
   };
 }
@@ -75,6 +76,7 @@ function updateSummary(input: BookUpdateInput) {
     category: input.category,
     pageCount: input.pageCount,
     publicationDate: input.publicationDate.toISOString(),
+    publicationDatePrecision: input.publicationDatePrecision,
     hasBookBlob: Boolean(input.bookBlob),
     hasCoverBlob: Boolean(input.coverBlob),
   };
@@ -90,6 +92,7 @@ function rowSummary(book: {
   category: string;
   pageCount: number;
   publicationDate: Date;
+  publicationDatePrecision?: string | null;
   updatedAt: Date;
   publicationDateYear?: number | null;
 }) {
@@ -107,6 +110,7 @@ function rowSummary(book: {
         ? `year ${book.publicationDateYear}`
         : "Invalid Date"
       : book.publicationDate.toISOString(),
+    publicationDatePrecision: book.publicationDatePrecision,
     updatedAt: book.updatedAt.toISOString(),
   };
 }
@@ -120,6 +124,7 @@ function metadataPersisted(
     category: string;
     pageCount: number;
     publicationDate: Date;
+    publicationDatePrecision?: string | null;
     bookBlobUrl: string;
     bookBlobPath: string;
     fileSize: number;
@@ -142,7 +147,8 @@ function metadataPersisted(
     book.format === input.format &&
     book.category === input.category &&
     book.pageCount === input.pageCount &&
-    publicationDateMatches;
+    publicationDateMatches &&
+    (book.publicationDatePrecision ?? "YEAR") === input.publicationDatePrecision;
 
   const bookBlobMatches =
     !input.bookBlob || (book.bookBlobUrl === input.bookBlob.url && book.bookBlobPath === input.bookBlob.pathname && book.fileSize === input.bookBlob.size);

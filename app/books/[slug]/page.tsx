@@ -141,7 +141,7 @@ export default async function BookPage({ params }: BookPageProps) {
             </div>
             <div className="metadata-item">
               <dt>Publication date</dt>
-              <dd>{displayPublicationDate(book.publicationDate)}</dd>
+              <dd>{displayPublicationDate(book.publicationDate, book.publicationDatePrecision)}</dd>
             </div>
             <div className="metadata-item">
               <dt>Upload date</dt>

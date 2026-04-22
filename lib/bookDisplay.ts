@@ -1,7 +1,7 @@
 import { bookAuthors, type AuthorSource } from "@/lib/authors";
 import { categoryLabel } from "@/lib/config";
 import { formatPublicationDate } from "@/lib/formatPublicationDate";
-import type { BookCategory } from "@/lib/types";
+import type { BookCategory, PublicationDatePrecision } from "@/lib/types";
 
 function compactWhitespace(value: string) {
   return value.replace(/\s+/g, " ").trim();
@@ -47,6 +47,6 @@ export function displayCategoryLabel(category: BookCategory | string) {
   return categoryLabel(category);
 }
 
-export function displayPublicationDate(value: string | Date | null | undefined) {
-  return formatPublicationDate(value);
+export function displayPublicationDate(value: string | Date | null | undefined, precision?: PublicationDatePrecision) {
+  return formatPublicationDate(value, precision);
 }

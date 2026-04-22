@@ -167,7 +167,7 @@ export default async function AdminBooksPage({ searchParams }: AdminBooksPagePro
                 <div className="admin-book-meta">
                   <span>{book.format}</span>
                   <span>{displayCategoryLabel(book.category)}</span>
-                  <span>Published {displayPublicationDate(book.publicationDate)}</span>
+                  <span>Published {displayPublicationDate(book.publicationDate, book.publicationDatePrecision)}</span>
                   <span>Uploaded {formatDate(book.uploadDate)}</span>
                 </div>
                 <div className="admin-row-actions">

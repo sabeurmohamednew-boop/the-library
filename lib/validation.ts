@@ -26,6 +26,7 @@ export const bookImportSchema = z.object({
   category: z.enum(BOOK_CATEGORY_VALUES),
   pageCount: z.coerce.number().int().min(1, "Page count is required.").max(100000),
   publicationDate: publicationDateSchema,
+  publicationDatePrecision: z.enum(["YEAR", "DAY"]).default("YEAR"),
 });
 
 export const blobDescriptorSchema = z.object({

@@ -40,7 +40,7 @@ export function BookCard({ book, started }: BookCardProps) {
         <AuthorLinks author={book.author} authors={book.authors} className="book-authors" prefix="By " />
         <div className="book-meta">
           <span>
-            {book.pageCount.toLocaleString()} pages / {displayPublicationDate(book.publicationDate)}
+            {book.pageCount.toLocaleString()} pages / {displayPublicationDate(book.publicationDate, book.publicationDatePrecision)}
           </span>
           <span>{displayCategoryLabel(book.category)}</span>
         </div>

@@ -37,6 +37,10 @@ function publicationDateIso(book: Pick<Book, "publicationDate"> & PublicationDat
   throw new Error("Book publication date is invalid.");
 }
 
+function publicationDatePrecision(book: { publicationDatePrecision?: string | null }) {
+  return book.publicationDatePrecision === "DAY" ? "DAY" : "YEAR";
+}
+
 export async function withPublicationYears<T extends { id: string; publicationDate: Date }>(books: T[]) {
   if (books.length === 0) return books as (T & PublicationDateYear)[];
 
@@ -78,6 +82,7 @@ export function serializeBook(book: Book & PublicationDateYear): BookDTO {
     category: book.category as BookDTO["category"],
     pageCount: book.pageCount,
     publicationDate: publicationDateIso(book),
+    publicationDatePrecision: publicationDatePrecision(book),
     uploadDate: book.uploadDate.toISOString(),
     bookBlobUrl: book.bookBlobUrl,
     bookBlobPath: book.bookBlobPath,
@@ -91,7 +96,10 @@ export function serializeBook(book: Book & PublicationDateYear): BookDTO {
   };
 }
 
-type LibraryBookRecord = Pick<Book, "id" | "slug" | "title" | "description" | "author" | "format" | "category" | "pageCount" | "publicationDate" | "uploadDate" | "coverBlobPath" | "updatedAt">;
+type LibraryBookRecord = Pick<
+  Book,
+  "id" | "slug" | "title" | "description" | "author" | "format" | "category" | "pageCount" | "publicationDate" | "publicationDatePrecision" | "uploadDate" | "coverBlobPath" | "updatedAt"
+>;
 type ReaderBookRecord = Pick<Book, "id" | "slug" | "title" | "author" | "format" | "pageCount">;
 
 export function serializeLibraryBook(book: LibraryBookRecord & PublicationDateYear): LibraryBookDTO {
@@ -107,6 +115,7 @@ export function serializeLibraryBook(book: LibraryBookRecord & PublicationDateYe
     category: book.category as LibraryBookDTO["category"],
     pageCount: book.pageCount,
     publicationDate: publicationDateIso(book),
+    publicationDatePrecision: publicationDatePrecision(book),
     uploadDate: book.uploadDate.toISOString(),
     coverBlobPath: book.coverBlobPath,
     updatedAt: book.updatedAt.toISOString(),
@@ -134,6 +143,7 @@ const libraryBookSelect = {
   category: true,
   pageCount: true,
   publicationDate: true,
+  publicationDatePrecision: true,
   uploadDate: true,
   coverBlobPath: true,
   updatedAt: true,

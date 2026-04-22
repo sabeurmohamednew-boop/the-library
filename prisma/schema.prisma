@@ -18,6 +18,7 @@ model Book {
   category         String
   pageCount        Int
   publicationDate  DateTime
+  publicationDatePrecision String @default("YEAR")
   uploadDate       DateTime @default(now())
   bookBlobUrl      String
   bookBlobPath     String
