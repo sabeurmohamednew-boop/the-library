@@ -8,6 +8,8 @@ import type { BookCoverDTO } from "@/lib/types";
 type BookCoverProps = {
   book: BookCoverDTO;
   className?: string;
+  priority?: boolean;
+  sizes?: string;
 };
 
 function coverApiSrc(book: BookCoverProps["book"]) {
@@ -16,7 +18,7 @@ function coverApiSrc(book: BookCoverProps["book"]) {
   return coverVersion ? `${apiSrc}?v=${encodeURIComponent(coverVersion)}` : apiSrc;
 }
 
-export function BookCover({ book, className }: BookCoverProps) {
+export function BookCover({ book, className, priority = false, sizes = "(max-width: 560px) 108px, (max-width: 860px) 33vw, 214px" }: BookCoverProps) {
   const coverSrc = coverApiSrc(book);
   const bookTitle = displayBookTitle(book.title);
   const [failedSrc, setFailedSrc] = useState<string | null>(null);
@@ -36,7 +38,8 @@ export function BookCover({ book, className }: BookCoverProps) {
       src={coverSrc}
       alt={`Cover of ${bookTitle}`}
       fill
-      sizes="(max-width: 560px) 108px, (max-width: 860px) 33vw, 214px"
+      sizes={sizes}
+      priority={priority}
       className={coverClassName}
       onError={() => setFailedSrc(coverSrc)}
     />

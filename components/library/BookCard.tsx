@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { memo } from "react";
 import { TRUNCATION_LIMITS } from "@/lib/config";
 import { displayBookDescription, displayBookTitle, displayCategoryLabel, displayPublicationDate } from "@/lib/bookDisplay";
 import { truncateText } from "@/lib/text";
@@ -10,9 +11,10 @@ import { BookCover } from "@/components/library/BookCover";
 type BookCardProps = {
   book: LibraryBookDTO;
   started?: boolean;
+  imagePriority?: boolean;
 };
 
-export function BookCard({ book, started }: BookCardProps) {
+function BookCardComponent({ book, started, imagePriority = false }: BookCardProps) {
   const bookTitle = displayBookTitle(book.title);
   const title = truncateText(bookTitle, TRUNCATION_LIMITS.title);
   const description = truncateText(displayBookDescription(book.description), TRUNCATION_LIMITS.description);
@@ -22,7 +24,11 @@ export function BookCard({ book, started }: BookCardProps) {
       <Link className="cover-link" href={`/books/${book.slug}`} aria-label={`Open details for ${bookTitle}`} prefetch={false}>
         <span className="format-badge">{book.format}</span>
         {started ? <span className="resume-badge">Resume</span> : null}
-        <BookCover book={{ slug: book.slug, title: bookTitle, format: book.format, coverBlobPath: book.coverBlobPath, updatedAt: book.updatedAt }} />
+        <BookCover
+          book={{ slug: book.slug, title: bookTitle, format: book.format, coverBlobPath: book.coverBlobPath, updatedAt: book.updatedAt }}
+          priority={imagePriority}
+          sizes="(max-width: 560px) 108px, (max-width: 860px) 108px, (max-width: 1200px) 22vw, 214px"
+        />
       </Link>
 
       <div className="book-card-body">
@@ -51,3 +57,5 @@ export function BookCard({ book, started }: BookCardProps) {
     </article>
   );
 }
+
+export const BookCard = memo(BookCardComponent);

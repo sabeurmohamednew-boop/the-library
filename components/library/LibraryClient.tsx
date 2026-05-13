@@ -2,7 +2,7 @@
 
 import { Search } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { trackResumeClick } from "@/lib/analytics";
 import { BOOK_CATEGORIES, BOOK_FORMATS, LIBRARY_PAGE_SIZE } from "@/lib/config";
 import { getReaderStatesForLibrary, loadBookmarkedSlugs } from "@/lib/clientStorage";
@@ -29,7 +29,22 @@ type LibraryClientProps = {
   books: LibraryBookDTO[];
 };
 
-const useClientLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
+type IndexedBook = {
+  book: LibraryBookDTO;
+  searchText: string;
+  publicationTime: number;
+  uploadTime: number;
+};
+
+function scheduleClientStateLoad(callback: () => void) {
+  if ("requestIdleCallback" in window) {
+    const id = window.requestIdleCallback(callback, { timeout: 900 });
+    return () => window.cancelIdleCallback(id);
+  }
+
+  const id = globalThis.setTimeout(callback, 1);
+  return () => globalThis.clearTimeout(id);
+}
 
 export function LibraryClient({ books }: LibraryClientProps) {
   const [view, setView] = useState<ViewMode>("gallery");
@@ -39,27 +54,24 @@ export function LibraryClient({ books }: LibraryClientProps) {
   const [category, setCategory] = useState("");
   const [bookmarkedOnly, setBookmarkedOnly] = useState(false);
   const [search, setSearch] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [visibleCount, setVisibleCount] = useState<number>(LIBRARY_PAGE_SIZE.gallery);
   const [readerStates, setReaderStates] = useState<Map<string, ReaderState>>(new Map());
   const [bookmarkedSlugs, setBookmarkedSlugs] = useState<Set<string>>(new Set());
   const [clientStateReady, setClientStateReady] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
+  const deferredSearch = useDeferredValue(search);
 
   useEffect(() => {
-    const timeout = window.setTimeout(() => setDebouncedSearch(search), 180);
-    return () => window.clearTimeout(timeout);
-  }, [search]);
-
-  useClientLayoutEffect(() => {
-    setReaderStates(getReaderStatesForLibrary());
-    setBookmarkedSlugs(loadBookmarkedSlugs());
-    setClientStateReady(true);
+    return scheduleClientStateLoad(() => {
+      setReaderStates(getReaderStatesForLibrary());
+      setBookmarkedSlugs(loadBookmarkedSlugs());
+      setClientStateReady(true);
+    });
   }, []);
 
   useEffect(() => {
     setVisibleCount(LIBRARY_PAGE_SIZE[view]);
-  }, [view, sort, format, category, bookmarkedOnly, debouncedSearch]);
+  }, [view, sort, format, category, bookmarkedOnly, deferredSearch]);
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -75,38 +87,47 @@ export function LibraryClient({ books }: LibraryClientProps) {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  const filteredBooks = useMemo(() => {
-    const query = normalizeSearch(debouncedSearch);
+  const indexedBooks = useMemo<IndexedBook[]>(() => {
+    return books.map((book) => ({
+      book,
+      searchText: normalizeSearch(`${book.title} ${book.author} ${bookAuthors(book).join(" ")} ${book.description}`),
+      publicationTime: new Date(book.publicationDate).getTime(),
+      uploadTime: new Date(book.uploadDate).getTime(),
+    }));
+  }, [books]);
 
-    return books
-      .filter((book) => {
+  const filteredBooks = useMemo(() => {
+    const query = normalizeSearch(deferredSearch);
+
+    return indexedBooks
+      .filter((item) => {
+        const { book } = item;
         if (format && book.format !== format) return false;
         if (category && book.category !== category) return false;
         if (bookmarkedOnly && !bookmarkedSlugs.has(book.slug)) return false;
 
         if (!query) return true;
-        const authorText = bookAuthors(book).join(" ");
-        const haystack = `${book.title} ${book.author} ${authorText} ${book.description}`.toLowerCase();
-        return haystack.includes(query);
+        return item.searchText.includes(query);
       })
       .sort((a, b) => {
         switch (sort) {
           case "title-desc":
-            return b.title.localeCompare(a.title);
+            return b.book.title.localeCompare(a.book.title);
           case "publication-desc":
-            return new Date(b.publicationDate).getTime() - new Date(a.publicationDate).getTime();
+            return b.publicationTime - a.publicationTime;
           case "publication-asc":
-            return new Date(a.publicationDate).getTime() - new Date(b.publicationDate).getTime();
+            return a.publicationTime - b.publicationTime;
           case "upload-desc":
-            return new Date(b.uploadDate).getTime() - new Date(a.uploadDate).getTime();
+            return b.uploadTime - a.uploadTime;
           case "upload-asc":
-            return new Date(a.uploadDate).getTime() - new Date(b.uploadDate).getTime();
+            return a.uploadTime - b.uploadTime;
           case "title-asc":
           default:
-            return a.title.localeCompare(b.title);
+            return a.book.title.localeCompare(b.book.title);
         }
-      });
-  }, [books, bookmarkedOnly, bookmarkedSlugs, category, debouncedSearch, format, sort]);
+      })
+      .map((item) => item.book);
+  }, [bookmarkedOnly, bookmarkedSlugs, category, deferredSearch, format, indexedBooks, sort]);
 
   const recentBooks = useMemo(() => {
     return books
@@ -121,7 +142,7 @@ export function LibraryClient({ books }: LibraryClientProps) {
 
   const visibleBooks = filteredBooks.slice(0, visibleCount);
   const canLoadMore = visibleCount < filteredBooks.length;
-  const hasActiveFilters = Boolean(debouncedSearch.trim() || format || category || bookmarkedOnly);
+  const hasActiveFilters = Boolean(deferredSearch.trim() || format || category || bookmarkedOnly);
   const hasAnyBookBookmarks = bookmarkedSlugs.size > 0;
   const noBookmarkedBooks = bookmarkedOnly && !hasAnyBookBookmarks;
 
@@ -153,7 +174,6 @@ export function LibraryClient({ books }: LibraryClientProps) {
 
   function resetSearchAndFilters() {
     setSearch("");
-    setDebouncedSearch("");
     setFormat("");
     setCategory("");
     setBookmarkedOnly(false);
@@ -281,7 +301,7 @@ export function LibraryClient({ books }: LibraryClientProps) {
             <span className="muted small">Pick up where you left off</span>
           </div>
           <div className="continue-card-grid">
-            {recentBooks.map((book) => {
+            {recentBooks.map((book, index) => {
               const state = readerStates.get(book.slug);
               const progress = Math.max(0, Math.min(1, state?.progress ?? 0));
               const resumeDetail = resumeDetailFor(book);
@@ -296,7 +316,11 @@ export function LibraryClient({ books }: LibraryClientProps) {
                     prefetch={false}
                     onClick={() => trackResumeClick(book, progress)}
                   >
-                    <BookCover book={{ slug: book.slug, title: bookTitle, format: book.format, coverBlobPath: book.coverBlobPath, updatedAt: book.updatedAt }} />
+                    <BookCover
+                      book={{ slug: book.slug, title: bookTitle, format: book.format, coverBlobPath: book.coverBlobPath, updatedAt: book.updatedAt }}
+                      priority={index === 0}
+                      sizes="(max-width: 560px) 72px, (max-width: 860px) 92px, 110px"
+                    />
                   </Link>
                   <div className="continue-card-body">
                     <p className="continue-kicker">{book.format}</p>
@@ -391,8 +415,8 @@ export function LibraryClient({ books }: LibraryClientProps) {
           </div>
         ) : view === "gallery" ? (
           <div className="gallery-grid">
-            {visibleBooks.map((book) => (
-              <BookCard key={book.slug} book={book} started={(readerStates.get(book.slug)?.progress ?? 0) > 0} />
+            {visibleBooks.map((book, index) => (
+              <BookCard key={book.slug} book={book} started={(readerStates.get(book.slug)?.progress ?? 0) > 0} imagePriority={index < 4} />
             ))}
           </div>
         ) : view === "cover" ? (
@@ -402,7 +426,11 @@ export function LibraryClient({ books }: LibraryClientProps) {
 
               return (
                 <Link key={book.slug} className="cover-link" href={`/books/${book.slug}`} aria-label={`Open details for ${bookTitle}`} prefetch={false}>
-                  <BookCover book={{ slug: book.slug, title: bookTitle, format: book.format, coverBlobPath: book.coverBlobPath, updatedAt: book.updatedAt }} />
+                    <BookCover
+                      book={{ slug: book.slug, title: bookTitle, format: book.format, coverBlobPath: book.coverBlobPath, updatedAt: book.updatedAt }}
+                      priority={false}
+                      sizes="(max-width: 560px) 30vw, (max-width: 860px) 18vw, 112px"
+                    />
                 </Link>
               );
             })}
