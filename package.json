@@ -12,6 +12,7 @@
     "db:migrate": "prisma migrate deploy",
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
+    "migrate:blob-to-r2": "node scripts/migrate-vercel-blob-to-r2.mjs",
     "postinstall": "prisma generate && node scripts/copy-pdf-worker.mjs"
   },
   "keywords": [],
