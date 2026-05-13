@@ -1,5 +1,5 @@
 import { deflateSync } from "node:zlib";
-import { put } from "@vercel/blob";
+import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import JSZip from "jszip";
 import { PrismaClient } from "@prisma/client";
 
@@ -392,18 +392,47 @@ ${chapterFiles.map((_, index) => `  <itemref idref="chapter-${index + 1}"/>`).jo
   });
 }
 
-async function uploadSeedBlob(pathname: string, body: Buffer, contentType: string) {
-  return put(pathname, body, {
-    access: "public",
-    allowOverwrite: true,
-    contentType,
-  });
+function requiredEnv(name: string) {
+  const value = process.env[name]?.trim();
+  if (!value) throw new Error(`${name} is required to seed sample books into Cloudflare R2.`);
+  return value;
+}
+
+function r2Url(bucket: string, pathname: string) {
+  const publicBaseUrl = process.env.R2_PUBLIC_BASE_URL?.trim();
+  if (publicBaseUrl) return `${publicBaseUrl.replace(/\/+$/, "")}/${pathname}`;
+  return `r2://${bucket}/${pathname}`;
+}
+
+async function uploadSeedObject(client: S3Client, bucket: string, pathname: string, body: Buffer, contentType: string) {
+  await client.send(
+    new PutObjectCommand({
+      Bucket: bucket,
+      Key: pathname,
+      Body: body,
+      ContentLength: body.byteLength,
+      ContentType: contentType,
+    }),
+  );
+
+  return {
+    url: r2Url(bucket, pathname),
+    pathname,
+  };
 }
 
 async function main() {
-  if (!process.env.BLOB_READ_WRITE_TOKEN) {
-    throw new Error("BLOB_READ_WRITE_TOKEN is required to seed sample books into Vercel Blob.");
-  }
+  const accountId = requiredEnv("R2_ACCOUNT_ID");
+  const bucket = requiredEnv("R2_BUCKET_NAME");
+  const client = new S3Client({
+    region: "auto",
+    endpoint: process.env.R2_ENDPOINT?.trim() || `https://${accountId}.r2.cloudflarestorage.com`,
+    credentials: {
+      accessKeyId: requiredEnv("R2_ACCESS_KEY_ID"),
+      secretAccessKey: requiredEnv("R2_SECRET_ACCESS_KEY"),
+    },
+    forcePathStyle: true,
+  });
 
   for (const [index, book] of samples.entries()) {
     const bookExtension = book.format === "PDF" ? ".pdf" : ".epub";
@@ -414,8 +443,8 @@ async function main() {
     const fileContentType = book.format === "PDF" ? "application/pdf" : "application/epub+zip";
     const coverContentType = "image/png";
     const [bookBlob, coverBlob] = await Promise.all([
-      uploadSeedBlob(bookBlobPath, fileBuffer, fileContentType),
-      uploadSeedBlob(coverBlobPath, coverBuffer, coverContentType),
+      uploadSeedObject(client, bucket, bookBlobPath, fileBuffer, fileContentType),
+      uploadSeedObject(client, bucket, coverBlobPath, coverBuffer, coverContentType),
     ]);
 
     await prisma.book.upsert({

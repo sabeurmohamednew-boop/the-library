@@ -7,7 +7,6 @@ import { logRuntimeFailure, runtimeFailure } from "@/lib/runtime";
 import { sanitizeFileStem } from "@/lib/storage";
 
 export const runtime = "nodejs";
-const BOOK_FILE_FETCH_TIMEOUT_MS = 30000;
 
 type RouteContext = {
   params: Promise<{ slug: string }>;
@@ -23,11 +22,6 @@ function devLog(message: string, data?: Record<string, unknown>) {
 function dispositionFilename(title: string, extension: string) {
   const safe = sanitizeFileStem(title || "book");
   return `${safe}${extension}`;
-}
-
-function copyHeader(source: Headers, target: Headers, name: string) {
-  const value = source.get(name);
-  if (value) target.set(name, value);
 }
 
 function parseRange(range: string | null, size: number) {
@@ -142,7 +136,7 @@ async function handleFileRequest(request: Request, context: RouteContext, headOn
     return NextResponse.json({ error: "Book not found." }, { status: 404 });
   }
 
-  if (!book.bookBlobUrl) {
+  if (!book.bookBlobPath) {
     return NextResponse.json({ error: "Book file is unavailable." }, { status: 404 });
   }
 
@@ -201,83 +195,7 @@ async function handleFileRequest(request: Request, context: RouteContext, headOn
     return localFileResponse(request, book, localFile, headOnly);
   }
 
-  try {
-    const headers = new Headers();
-    if (range) headers.set("range", range);
-    const abortController = new AbortController();
-    const timeout = setTimeout(() => abortController.abort(), BOOK_FILE_FETCH_TIMEOUT_MS);
-    const startedAt = Date.now();
-
-    devLog("blob-fetch:start", {
-      slug: decodedSlug,
-      range,
-      headOnly,
-      method: headOnly ? "HEAD" : "GET",
-      blobPath: book.bookBlobPath,
-    });
-    const blobResponse = await fetch(book.bookBlobUrl, {
-      method: headOnly ? "HEAD" : "GET",
-      headers,
-      cache: "no-store",
-      signal: abortController.signal,
-    }).finally(() => clearTimeout(timeout));
-    devLog("blob-fetch:end", {
-      slug: decodedSlug,
-      status: blobResponse.status,
-      ok: blobResponse.ok,
-      range,
-      headOnly,
-      elapsedMs: Date.now() - startedAt,
-      contentType: blobResponse.headers.get("content-type"),
-      contentLength: blobResponse.headers.get("content-length"),
-      contentRange: blobResponse.headers.get("content-range"),
-      acceptRanges: blobResponse.headers.get("accept-ranges"),
-    });
-
-    if (!blobResponse.ok && blobResponse.status !== 206 && blobResponse.status !== 416) {
-      const body = await blobResponse.text().catch(() => "");
-      devLog("blob-fetch-failed", { slug: decodedSlug, status: blobResponse.status, range, body: body.slice(0, 160) });
-      return NextResponse.json({ error: "Book file is unavailable." }, { status: blobResponse.status === 404 ? 404 : 502 });
-    }
-
-    const extension = path.extname(book.bookBlobPath) || (book.format === "PDF" ? ".pdf" : ".epub");
-    const filename = dispositionFilename(book.title, extension);
-    const download = new URL(request.url).searchParams.get("download") === "1";
-    const disposition = download ? "attachment" : "inline";
-    const responseHeaders = new Headers({
-      "Accept-Ranges": blobResponse.headers.get("accept-ranges") ?? "bytes",
-      "Content-Type": book.fileContentType || blobResponse.headers.get("content-type") || "application/octet-stream",
-      "Content-Disposition": `${disposition}; filename="${filename}"; filename*=UTF-8''${encodeURIComponent(filename)}`,
-      "Cache-Control": "private, max-age=0, must-revalidate",
-      "X-Content-Type-Options": "nosniff",
-    });
-
-    copyHeader(blobResponse.headers, responseHeaders, "content-length");
-    copyHeader(blobResponse.headers, responseHeaders, "content-range");
-    copyHeader(blobResponse.headers, responseHeaders, "etag");
-    copyHeader(blobResponse.headers, responseHeaders, "last-modified");
-
-    devLog(blobResponse.status === 206 ? "partial-content" : "full-content", {
-      slug: decodedSlug,
-      status: blobResponse.status,
-      range,
-      headOnly,
-    });
-
-    return new Response(headOnly ? null : blobResponse.body, {
-      status: blobResponse.status,
-      headers: responseHeaders,
-    });
-  } catch (error) {
-    const aborted = typeof error === "object" && error !== null && "name" in error && (error as { name?: unknown }).name === "AbortError";
-    devLog("blob-error", {
-      slug: decodedSlug,
-      message: error instanceof Error ? error.message : String(error),
-      blobPath: book.bookBlobPath,
-      aborted,
-    });
-    return NextResponse.json({ error: aborted ? "Book file request timed out." : "Book file is unavailable." }, { status: aborted ? 504 : 404 });
-  }
+  return NextResponse.json({ error: "Book file is unavailable." }, { status: 404 });
 }
 
 export async function GET(request: Request, context: RouteContext) {

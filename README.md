@@ -155,7 +155,7 @@ Downloads use:
 /api/books/[slug]/file?download=1
 ```
 
-The file route reads from R2 first, preserves byte range requests so PDF.js can seek efficiently, then falls back to local `storage/` files and legacy Vercel Blob URLs when available.
+The file route reads from R2 first, preserves byte range requests so PDF.js can seek efficiently, then falls back to local `storage/` files during development.
 
 ### Cloudflare R2 setup
 

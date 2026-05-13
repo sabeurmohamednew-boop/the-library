@@ -23,7 +23,7 @@ export async function GET(_request: Request, { params }: RouteContext) {
     return NextResponse.json({ error: failure.userMessage }, { status: 503 });
   }
 
-  if (!book?.coverBlobUrl) {
+  if (!book?.coverBlobPath) {
     return NextResponse.json({ error: "Cover not found." }, { status: 404 });
   }
 
@@ -72,38 +72,5 @@ export async function GET(_request: Request, { params }: RouteContext) {
     });
   }
 
-  let coverResponse: Response;
-
-  try {
-    coverResponse = await fetch(book.coverBlobUrl, { cache: "no-store" });
-  } catch (error) {
-    const failure = runtimeFailure("book-cover.fetch", error);
-    logRuntimeFailure(failure, { slug: decodedSlug });
-    return NextResponse.json({ error: "Cover image could not be loaded." }, { status: 502 });
-  }
-
-  if (!coverResponse.ok || !coverResponse.body) {
-    const body = await coverResponse.text().catch(() => "");
-    console.info("[book-cover] blob-fetch-failed", {
-      at: new Date().toISOString(),
-      slug: decodedSlug,
-      status: coverResponse.status,
-      body: body.slice(0, 160),
-      blobPath: book.coverBlobPath,
-    });
-    return NextResponse.json({ error: "Cover image could not be loaded." }, { status: 502 });
-  }
-  const contentType = coverResponse.headers.get("content-type") || book.coverContentType || "image/jpeg";
-
-  if (!contentType.toLowerCase().startsWith("image/")) {
-    return NextResponse.json({ error: "Cover response was not an image." }, { status: 502 });
-  }
-
-  return new NextResponse(coverResponse.body, {
-    status: 200,
-    headers: {
-      "Content-Type": contentType,
-      "Cache-Control": "no-store, max-age=0",
-    },
-  });
+  return NextResponse.json({ error: "Cover image could not be loaded." }, { status: 404 });
 }

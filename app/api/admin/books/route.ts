@@ -8,7 +8,7 @@ import { bookCreateSchema } from "@/lib/validation";
 import { bookDataFromInput, coverDataFromBlob, fileDataFromBlob, safeAdminError, uniqueSlug } from "@/lib/adminBooks";
 import { dateFromPublicationYear, parsePublicationDateInput, postgresPublicationDateLiteralFromYear, publicationYearFromDate } from "@/lib/publicationYear";
 import { deleteR2ObjectIfPresent, r2ConfigError } from "@/lib/r2";
-import { deleteBlobIfPresent, fileStoreConfigured, validateBookBlob, validateCoverBlob } from "@/lib/storage";
+import { fileStoreConfigured, validateBookBlob, validateCoverBlob } from "@/lib/storage";
 
 export const runtime = "nodejs";
 
@@ -32,7 +32,7 @@ function blobPathsFromBody(body: unknown) {
 }
 
 async function deleteUploadedFileIfPresent(pathname: string) {
-  await Promise.all([deleteR2ObjectIfPresent(pathname), deleteBlobIfPresent(pathname)]);
+  await deleteR2ObjectIfPresent(pathname);
 }
 
 function bodyWithPublicationDate(body: unknown) {

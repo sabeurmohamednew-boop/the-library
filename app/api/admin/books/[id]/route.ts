@@ -13,7 +13,7 @@ import { publicationYearForBookId, serializeBook, withPublicationYears } from "@
 import { prisma } from "@/lib/db";
 import { parsePublicationDateInput, postgresPublicationDateLiteralFromYear, publicationYearFromDate } from "@/lib/publicationYear";
 import { deleteR2ObjectIfPresent, r2ConfigError } from "@/lib/r2";
-import { deleteBlobIfPresent, fileStoreConfigured, validateCoverBlob } from "@/lib/storage";
+import { fileStoreConfigured, validateCoverBlob } from "@/lib/storage";
 import { bookUpdateSchema } from "@/lib/validation";
 import type { BookUpdateInput } from "@/lib/validation";
 
@@ -33,7 +33,7 @@ function blobPathsFromBody(body: unknown) {
 }
 
 async function deleteUploadedFileIfPresent(pathname: string) {
-  await Promise.all([deleteR2ObjectIfPresent(pathname), deleteBlobIfPresent(pathname)]);
+  await deleteR2ObjectIfPresent(pathname);
 }
 
 function bodyWithPublicationDate(body: unknown) {

@@ -1,7 +1,6 @@
 import "server-only";
 
 import path from "node:path";
-import { del } from "@vercel/blob";
 import type { BlobDescriptor } from "@/lib/types";
 
 const BOOK_CONTENT_TYPES = {
@@ -10,10 +9,6 @@ const BOOK_CONTENT_TYPES = {
 } as const;
 
 const COVER_CONTENT_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/avif"]);
-
-export function blobStoreConfigured() {
-  return Boolean(process.env.BLOB_READ_WRITE_TOKEN?.trim());
-}
 
 export function r2StoreConfigured() {
   return Boolean(
@@ -25,7 +20,7 @@ export function r2StoreConfigured() {
 }
 
 export function fileStoreConfigured() {
-  return r2StoreConfigured() || blobStoreConfigured();
+  return r2StoreConfigured();
 }
 
 export function sanitizeFileStem(value: string) {
@@ -104,21 +99,6 @@ export function validateCoverBlob(blob: BlobDescriptor) {
   return null;
 }
 
-export async function deleteBlobIfPresent(value: string | null | undefined) {
-  if (!value) return;
-
-  if (!blobStoreConfigured()) {
-    console.warn("[blob] delete skipped because BLOB_READ_WRITE_TOKEN is not configured.");
-    return;
-  }
-
-  try {
-    await del(value);
-  } catch (error) {
-    console.warn("[blob] delete failed", error);
-  }
-}
-
-export function bookFileAvailable(book: { bookBlobUrl?: string | null }) {
-  return Boolean(book.bookBlobUrl);
+export function bookFileAvailable(book: { bookBlobPath?: string | null }) {
+  return Boolean(book.bookBlobPath);
 }
