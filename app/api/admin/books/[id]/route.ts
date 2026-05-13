@@ -12,7 +12,8 @@ import {
 import { publicationYearForBookId, serializeBook, withPublicationYears } from "@/lib/books";
 import { prisma } from "@/lib/db";
 import { parsePublicationDateInput, postgresPublicationDateLiteralFromYear, publicationYearFromDate } from "@/lib/publicationYear";
-import { blobStoreConfigured, deleteBlobIfPresent, validateCoverBlob } from "@/lib/storage";
+import { deleteR2ObjectIfPresent, r2ConfigError } from "@/lib/r2";
+import { deleteBlobIfPresent, fileStoreConfigured, validateCoverBlob } from "@/lib/storage";
 import { bookUpdateSchema } from "@/lib/validation";
 import type { BookUpdateInput } from "@/lib/validation";
 
@@ -29,6 +30,10 @@ function blobPathsFromBody(body: unknown) {
     .map((key) => record[key])
     .filter((value): value is { pathname: string } => Boolean(value) && typeof value === "object" && typeof (value as { pathname?: unknown }).pathname === "string")
     .map((value) => value.pathname);
+}
+
+async function deleteUploadedFileIfPresent(pathname: string) {
+  await Promise.all([deleteR2ObjectIfPresent(pathname), deleteBlobIfPresent(pathname)]);
 }
 
 function bodyWithPublicationDate(body: unknown) {
@@ -205,14 +210,14 @@ async function updateBook(request: Request, { params }: RouteContext) {
     uploadedPaths.push(...blobPathsFromBody(body));
     const normalizedBody = bodyWithPublicationDate(body);
     if (!normalizedBody.ok) {
-      await Promise.all(uploadedPaths.map((pathname) => deleteBlobIfPresent(pathname)));
+      await Promise.all(uploadedPaths.map(deleteUploadedFileIfPresent));
       return NextResponse.json({ error: normalizedBody.error, fieldErrors: { publicationDate: [normalizedBody.error] } }, { status: 400 });
     }
 
     const parsed = bookUpdateSchema.safeParse(normalizedBody.body);
 
     if (!parsed.success) {
-      await Promise.all(uploadedPaths.map((pathname) => deleteBlobIfPresent(pathname)));
+      await Promise.all(uploadedPaths.map(deleteUploadedFileIfPresent));
       return NextResponse.json(
         {
           error: parsed.error.issues[0]?.message ?? "Invalid metadata.",
@@ -222,20 +227,20 @@ async function updateBook(request: Request, { params }: RouteContext) {
       );
     }
 
-    if (!blobStoreConfigured() && (parsed.data.bookBlob || parsed.data.coverBlob)) {
-      return NextResponse.json({ error: "Vercel Blob is not configured. Add BLOB_READ_WRITE_TOKEN before replacing files." }, { status: 503 });
+    if (!fileStoreConfigured() && (parsed.data.bookBlob || parsed.data.coverBlob)) {
+      return NextResponse.json({ error: r2ConfigError() ?? "No file store is configured. Add Cloudflare R2 environment variables before replacing files." }, { status: 503 });
     }
 
     const replacementError = validateReplacementFormat(existing.bookBlobPath, existing.fileContentType, parsed.data.format, parsed.data.bookBlob);
     if (replacementError) {
-      await Promise.all(uploadedPaths.map((pathname) => deleteBlobIfPresent(pathname)));
+      await Promise.all(uploadedPaths.map(deleteUploadedFileIfPresent));
       return NextResponse.json({ error: replacementError, fieldErrors: { bookFile: [replacementError] } }, { status: 400 });
     }
 
     if (parsed.data.coverBlob) {
       const coverError = validateCoverBlob(parsed.data.coverBlob);
       if (coverError) {
-        await Promise.all(uploadedPaths.map((pathname) => deleteBlobIfPresent(pathname)));
+        await Promise.all(uploadedPaths.map(deleteUploadedFileIfPresent));
         return NextResponse.json({ error: coverError, fieldErrors: { coverFile: [coverError] } }, { status: 400 });
       }
     }
@@ -329,10 +334,10 @@ async function updateBook(request: Request, { params }: RouteContext) {
     }
 
     if (parsed.data.bookBlob && existing.bookBlobPath !== parsed.data.bookBlob.pathname) {
-      await deleteBlobIfPresent(existing.bookBlobPath);
+      await deleteUploadedFileIfPresent(existing.bookBlobPath);
     }
     if (parsed.data.coverBlob && existing.coverBlobPath !== parsed.data.coverBlob.pathname) {
-      await deleteBlobIfPresent(existing.coverBlobPath);
+      await deleteUploadedFileIfPresent(existing.coverBlobPath);
     }
 
     revalidateBookPaths(persistedWithYear, { slug: existing.slug, author: existing.author });
@@ -346,7 +351,7 @@ async function updateBook(request: Request, { params }: RouteContext) {
 
     return NextResponse.json({ ok: true, book: serializeBook(persistedWithYear) });
   } catch (error) {
-    await Promise.all(uploadedPaths.map((pathname) => deleteBlobIfPresent(pathname)));
+    await Promise.all(uploadedPaths.map(deleteUploadedFileIfPresent));
     return NextResponse.json({ error: safeAdminError(error, error instanceof Error ? error.message : "The book could not be updated.") }, { status: 500 });
   }
 }
@@ -371,12 +376,12 @@ export async function DELETE(_request: Request, { params }: RouteContext) {
       return NextResponse.json({ error: "Book not found." }, { status: 404 });
     }
 
-    if (!blobStoreConfigured()) {
-      return NextResponse.json({ error: "Vercel Blob is not configured. Add BLOB_READ_WRITE_TOKEN before deleting books so stored files can be removed safely." }, { status: 503 });
+    if (!fileStoreConfigured()) {
+      return NextResponse.json({ error: "No file store is configured. Add Cloudflare R2 environment variables before deleting books so stored files can be removed safely." }, { status: 503 });
     }
 
     await prisma.book.delete({ where: { id } });
-    await Promise.all([deleteBlobIfPresent(existing.bookBlobPath), deleteBlobIfPresent(existing.coverBlobPath)]);
+    await Promise.all([deleteUploadedFileIfPresent(existing.bookBlobPath), deleteUploadedFileIfPresent(existing.coverBlobPath)]);
     for (const path of ["/", "/admin", "/admin/books", `/admin/books/${existing.id}/edit`, `/books/${existing.slug}`, `/read/${existing.slug}`, ...authorPaths(existing.author)]) {
       revalidatePath(path);
     }

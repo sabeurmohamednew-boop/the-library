@@ -9,7 +9,7 @@ import { BookCover } from "@/components/library/BookCover";
 import { adminPasswordConfigured, isAdminSession } from "@/lib/adminAuth";
 import { displayBookTitle } from "@/lib/bookDisplay";
 import { safeGetBookById } from "@/lib/books";
-import { blobStoreConfigured } from "@/lib/storage";
+import { fileStoreConfigured } from "@/lib/storage";
 
 export const dynamic = "force-dynamic";
 
@@ -101,7 +101,7 @@ export default async function EditBookPage({ params }: EditBookPageProps) {
             <AdminDeleteButton id={book.id} title={bookTitle} />
           </div>
         </div>
-        <AdminBookEditForm book={book} blobConfigured={blobStoreConfigured()} />
+        <AdminBookEditForm book={book} fileStoreConfigured={fileStoreConfigured()} />
       </section>
     </main>
   );

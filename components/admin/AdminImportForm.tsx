@@ -20,10 +20,10 @@ function inferTitle(fileName: string) {
 }
 
 type AdminImportFormProps = {
-  blobConfigured: boolean;
+  fileStoreConfigured: boolean;
 };
 
-export function AdminImportForm({ blobConfigured }: AdminImportFormProps) {
+export function AdminImportForm({ fileStoreConfigured }: AdminImportFormProps) {
   const formRef = useRef<HTMLFormElement>(null);
   const [title, setTitle] = useState("");
   const [author, setAuthor] = useState("");
@@ -50,9 +50,9 @@ export function AdminImportForm({ blobConfigured }: AdminImportFormProps) {
     setFieldErrors({});
     setCreated(null);
 
-    if (!blobConfigured) {
+    if (!fileStoreConfigured) {
       setSubmitting(false);
-      setError("Vercel Blob is not configured. Add BLOB_READ_WRITE_TOKEN before importing books.");
+      setError("Cloudflare R2 is not configured. Add the R2 environment variables before importing books.");
       return;
     }
 
@@ -145,10 +145,10 @@ export function AdminImportForm({ blobConfigured }: AdminImportFormProps) {
   return (
     <form ref={formRef} className="admin-form" onSubmit={handleSubmit}>
       <div className="notice">
-        This owner-only route uploads files to Vercel Blob and creates a database record immediately.
+        This owner-only route uploads files to Cloudflare R2 and creates a database record immediately.
       </div>
-      {!blobConfigured ? (
-        <div className="error-state">Vercel Blob is not configured. Add BLOB_READ_WRITE_TOKEN in Vercel before importing books.</div>
+      {!fileStoreConfigured ? (
+        <div className="error-state">Cloudflare R2 is not configured. Add the R2 environment variables in Vercel before importing books.</div>
       ) : null}
 
       <div className="form-grid">
@@ -247,7 +247,7 @@ export function AdminImportForm({ blobConfigured }: AdminImportFormProps) {
       ) : null}
 
       <div className="action-row">
-        <button className="button primary" type="submit" disabled={submitting || !blobConfigured}>
+        <button className="button primary" type="submit" disabled={submitting || !fileStoreConfigured}>
           {submitting ? "Uploading" : "Import book"}
         </button>
         <Link className="button" href="/" prefetch={false}>

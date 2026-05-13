@@ -1,6 +1,6 @@
 # The Library
 
-A minimalist self-hosted online library built with Next.js App Router, TypeScript, Prisma, Neon Postgres, Vercel Blob, PDF.js, and epub.js.
+A minimalist self-hosted online library built with Next.js App Router, TypeScript, Prisma, Neon Postgres, Cloudflare R2, PDF.js, and epub.js.
 
 The public site opens directly on the library. There are no reader accounts, signups, public upload controls, marketing pages, hero sections, pricing blocks, or promotional sections.
 
@@ -10,7 +10,7 @@ The public site opens directly on the library. There are no reader accounts, sig
 - TypeScript
 - Prisma Client with PostgreSQL
 - Neon Postgres for durable book metadata
-- Vercel Blob for durable book files and cover images
+- Cloudflare R2 for durable book files and cover images
 - PDF.js for PDF reading
 - epub.js for EPUB reading
 - Browser `localStorage` for reader preferences, progress, and bookmarks
@@ -24,7 +24,12 @@ DATABASE_URL="postgresql://USER:PASSWORD@HOST-pooler.REGION.aws.neon.tech/DB?ssl
 DIRECT_URL="postgresql://USER:PASSWORD@HOST.REGION.aws.neon.tech/DB?sslmode=require"
 ADMIN_PASSWORD="replace-with-a-long-private-password"
 ADMIN_SESSION_SECRET="replace-with-a-long-random-session-secret"
-BLOB_READ_WRITE_TOKEN="vercel_blob_rw_replace_with_project_token"
+R2_ACCOUNT_ID="a3ce49be97bcba2cbf406de154b5f8b4"
+R2_BUCKET_NAME="the-library-files"
+R2_ACCESS_KEY_ID="replace-with-r2-access-key-id"
+R2_SECRET_ACCESS_KEY="replace-with-r2-secret-access-key"
+R2_ENDPOINT="https://a3ce49be97bcba2cbf406de154b5f8b4.r2.cloudflarestorage.com"
+R2_PUBLIC_BASE_URL=""
 ```
 
 Use Neon's pooled connection string for `DATABASE_URL`. Use Neon's direct connection string for `DIRECT_URL`, which Prisma CLI uses for migrations.
@@ -35,7 +40,7 @@ For local development with the same Vercel project variables, pull them with:
 vercel env pull .env.local
 ```
 
-Next.js reads `.env.local` automatically. Prisma CLI commands such as `npm run db:migrate` read `.env`, so either copy the Neon `DATABASE_URL` and `DIRECT_URL` into `.env` for local migration work or export them in your shell before running Prisma commands. Keep `BLOB_READ_WRITE_TOKEN` in environment variables only; the app reads it from `process.env.BLOB_READ_WRITE_TOKEN` and never hardcodes it.
+Next.js reads `.env.local` automatically. Prisma CLI commands such as `npm run db:migrate` read `.env`, so either copy the Neon `DATABASE_URL` and `DIRECT_URL` into `.env` for local migration work or export them in your shell before running Prisma commands. Keep the R2 access key and secret in server-side environment variables only; they are used by server routes and are never exposed to client-side code.
 
 ## Setup
 
@@ -71,7 +76,7 @@ npm run build
 npm run start
 ```
 
-On Vercel, set the environment variables from `.env.example`, connect a Neon Postgres database, and connect a Vercel Blob store to the project. Run migrations against Neon before relying on the deployment:
+On Vercel, set the environment variables from `.env.example`, connect a Neon Postgres database, and create a Cloudflare R2 API token for the `the-library-files` bucket. Run migrations against Neon before relying on the deployment:
 
 ```bash
 npm run db:migrate
@@ -79,7 +84,7 @@ npm run db:migrate
 
 If the migration has not been applied yet, public pages render a clear database-not-ready message instead of crashing, but no library data can load until the Neon schema exists.
 
-Seed sample books only if you want demo content in Blob:
+Seed sample books only if you want demo content:
 
 ```bash
 npm run db:seed
@@ -97,15 +102,15 @@ The private import page is:
 
 It is not linked from the public library. The route requires `ADMIN_PASSWORD`; a successful password check sets an HTTP-only owner session cookie. Readers never see upload controls.
 
-The import form uploads PDF/EPUB files and cover images directly from the browser to Vercel Blob through the protected Blob client-upload token route:
+The import form uploads PDF/EPUB files and cover images through a protected server route. The route requires an owner session and writes objects to Cloudflare R2 with the S3-compatible API:
 
 ```text
-/api/admin/blob/upload
+/api/admin/r2/upload
 ```
 
-After Blob upload completes, the admin API saves metadata and Blob URLs/pathnames in Postgres. Upload date is set automatically. The library listing updates immediately because pages read from the database on request.
+After R2 upload completes, the admin API saves metadata and object pathnames in Postgres. Upload date is set automatically. The library listing updates immediately because pages read from the database on request.
 
-If `BLOB_READ_WRITE_TOKEN` is missing, public browsing can still render metadata already stored in Neon, but import, replacement upload, and delete actions are blocked with an admin-facing error.
+If the R2 environment variables are missing, public browsing can still render metadata already stored in Neon, but import and replacement upload actions are blocked with an admin-facing error.
 
 Accepted book files:
 
@@ -121,7 +126,14 @@ Accepted cover images:
 
 ## Storage
 
-Book files and covers are stored in Vercel Blob. The database stores Blob URLs and pathnames:
+Book files and covers are stored in Cloudflare R2 under these prefixes:
+
+```text
+books/
+covers/
+```
+
+The existing database column names are kept for compatibility. They now store R2 object URLs/pathnames for new uploads:
 
 ```text
 bookBlobUrl
@@ -143,7 +155,22 @@ Downloads use:
 /api/books/[slug]/file?download=1
 ```
 
-The file route proxies Blob responses and forwards byte range requests so PDF.js can seek efficiently.
+The file route reads from R2 first, preserves byte range requests so PDF.js can seek efficiently, then falls back to local `storage/` files and legacy Vercel Blob URLs when available.
+
+### Cloudflare R2 setup
+
+Create a bucket named `the-library-files`, then create an R2 API token with object read/write access for that bucket. Add these variables to local `.env`/`.env.local` and to Vercel:
+
+```env
+R2_ACCOUNT_ID="a3ce49be97bcba2cbf406de154b5f8b4"
+R2_BUCKET_NAME="the-library-files"
+R2_ACCESS_KEY_ID="..."
+R2_SECRET_ACCESS_KEY="..."
+R2_ENDPOINT="https://a3ce49be97bcba2cbf406de154b5f8b4.r2.cloudflarestorage.com"
+R2_PUBLIC_BASE_URL=""
+```
+
+`R2_PUBLIC_BASE_URL` is optional because the app proxies files through server routes. Set it only if you later attach a public R2/custom domain and want stored metadata URLs to point at it.
 
 ## Reader Features
 
@@ -266,7 +293,7 @@ npm run db:seed
 ## Notes
 
 - No public authentication is implemented for readers.
-- Owner uploads require a valid admin session before a Blob client-upload token is issued.
-- Old local files under `storage/books` and `storage/covers` are no longer used by the app after this migration.
-- Vercel Blob and Neon are persistent across deploys, unlike Vercel's serverless filesystem.
-- For very large PDFs/EPUBs, the admin flow uses Vercel Blob client uploads so files do not pass through the Next.js server request body.
+- Owner uploads require a valid admin session before files are accepted by the R2 upload route.
+- Local files under `storage/books` and `storage/covers` are still supported as a development fallback.
+- Cloudflare R2 and Neon are persistent across deploys, unlike Vercel's serverless filesystem.
+- The admin upload route proxies file uploads through the Next.js server before writing to R2. Keep Vercel request limits in mind for very large files.

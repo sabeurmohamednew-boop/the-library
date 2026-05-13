@@ -7,7 +7,8 @@ import { serializeBook } from "@/lib/books";
 import { bookCreateSchema } from "@/lib/validation";
 import { bookDataFromInput, coverDataFromBlob, fileDataFromBlob, safeAdminError, uniqueSlug } from "@/lib/adminBooks";
 import { dateFromPublicationYear, parsePublicationDateInput, postgresPublicationDateLiteralFromYear, publicationYearFromDate } from "@/lib/publicationYear";
-import { blobStoreConfigured, deleteBlobIfPresent, validateBookBlob, validateCoverBlob } from "@/lib/storage";
+import { deleteR2ObjectIfPresent, r2ConfigError } from "@/lib/r2";
+import { deleteBlobIfPresent, fileStoreConfigured, validateBookBlob, validateCoverBlob } from "@/lib/storage";
 
 export const runtime = "nodejs";
 
@@ -28,6 +29,10 @@ function blobPathsFromBody(body: unknown) {
     .map((key) => record[key])
     .filter((value): value is { pathname: string } => Boolean(value) && typeof value === "object" && typeof (value as { pathname?: unknown }).pathname === "string")
     .map((value) => value.pathname);
+}
+
+async function deleteUploadedFileIfPresent(pathname: string) {
+  await Promise.all([deleteR2ObjectIfPresent(pathname), deleteBlobIfPresent(pathname)]);
 }
 
 function bodyWithPublicationDate(body: unknown) {
@@ -52,8 +57,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Owner session required." }, { status: 401 });
   }
 
-  if (!blobStoreConfigured()) {
-    return NextResponse.json({ error: "Vercel Blob is not configured. Add BLOB_READ_WRITE_TOKEN before importing books." }, { status: 503 });
+  if (!fileStoreConfigured()) {
+    return NextResponse.json({ error: r2ConfigError() ?? "No file store is configured. Add Cloudflare R2 environment variables before importing books." }, { status: 503 });
   }
 
   const uploadedPaths: string[] = [];
@@ -63,14 +68,14 @@ export async function POST(request: Request) {
     uploadedPaths.push(...blobPathsFromBody(body));
     const normalizedBody = bodyWithPublicationDate(body);
     if (!normalizedBody.ok) {
-      await Promise.all(uploadedPaths.map((pathname) => deleteBlobIfPresent(pathname)));
+      await Promise.all(uploadedPaths.map(deleteUploadedFileIfPresent));
       return NextResponse.json({ error: normalizedBody.error, fieldErrors: { publicationDate: [normalizedBody.error] } }, { status: 400 });
     }
 
     const parsed = bookCreateSchema.safeParse(normalizedBody.body);
 
     if (!parsed.success) {
-      await Promise.all(uploadedPaths.map((pathname) => deleteBlobIfPresent(pathname)));
+      await Promise.all(uploadedPaths.map(deleteUploadedFileIfPresent));
       return NextResponse.json(
         {
           error: parsed.error.issues[0]?.message ?? "Invalid metadata.",
@@ -82,13 +87,13 @@ export async function POST(request: Request) {
 
     const bookBlobError = validateBookBlob(parsed.data.bookBlob, parsed.data.format);
     if (bookBlobError) {
-      await Promise.all(uploadedPaths.map((pathname) => deleteBlobIfPresent(pathname)));
+      await Promise.all(uploadedPaths.map(deleteUploadedFileIfPresent));
       return NextResponse.json({ error: bookBlobError, fieldErrors: { bookFile: [bookBlobError] } }, { status: 400 });
     }
 
     const coverBlobError = validateCoverBlob(parsed.data.coverBlob);
     if (coverBlobError) {
-      await Promise.all(uploadedPaths.map((pathname) => deleteBlobIfPresent(pathname)));
+      await Promise.all(uploadedPaths.map(deleteUploadedFileIfPresent));
       return NextResponse.json({ error: coverBlobError, fieldErrors: { coverFile: [coverBlobError] } }, { status: 400 });
     }
 
@@ -144,7 +149,7 @@ export async function POST(request: Request) {
       book: serializeBook(book),
     });
   } catch (error) {
-    await Promise.all(uploadedPaths.map((pathname) => deleteBlobIfPresent(pathname)));
+    await Promise.all(uploadedPaths.map(deleteUploadedFileIfPresent));
     return NextResponse.json({ error: safeAdminError(error, "The book could not be imported.") }, { status: 500 });
   }
 }

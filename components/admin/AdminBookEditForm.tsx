@@ -14,10 +14,10 @@ type FieldErrors = Record<string, string[] | undefined>;
 
 type AdminBookEditFormProps = {
   book: BookDTO;
-  blobConfigured: boolean;
+  fileStoreConfigured: boolean;
 };
 
-export function AdminBookEditForm({ book, blobConfigured }: AdminBookEditFormProps) {
+export function AdminBookEditForm({ book, fileStoreConfigured }: AdminBookEditFormProps) {
   const router = useRouter();
   const bookFileInputRef = useRef<HTMLInputElement>(null);
   const coverFileInputRef = useRef<HTMLInputElement>(null);
@@ -48,9 +48,9 @@ export function AdminBookEditForm({ book, blobConfigured }: AdminBookEditFormPro
     const formData = new FormData(event.currentTarget);
     formData.set("publicationDate", publicationDate.trim());
 
-    if (!blobConfigured && (replacementBook?.size || replacementCover?.size)) {
+    if (!fileStoreConfigured && (replacementBook?.size || replacementCover?.size)) {
       setSubmitting(false);
-      setError("Vercel Blob is not configured. Add BLOB_READ_WRITE_TOKEN before replacing files.");
+      setError("Cloudflare R2 is not configured. Add the R2 environment variables before replacing files.");
       return;
     }
 
@@ -67,7 +67,7 @@ export function AdminBookEditForm({ book, blobConfigured }: AdminBookEditFormPro
         replacementBook?.size ? uploadAdminBlob(replacementBook, "book", String(formData.get("title") ?? book.title)) : Promise.resolve(undefined),
         replacementCover?.size ? uploadAdminBlob(replacementCover, "cover", String(formData.get("title") ?? book.title)) : Promise.resolve(undefined),
       ]);
-      // Files are uploaded to Vercel Blob first; the PATCH persists the returned descriptors with the metadata.
+      // Files are uploaded to R2 first; the PATCH persists the returned descriptors with the metadata.
       const payload = {
         title: String(formData.get("title") ?? ""),
         description: String(formData.get("description") ?? ""),
@@ -137,9 +137,9 @@ export function AdminBookEditForm({ book, blobConfigured }: AdminBookEditFormPro
       <div className="notice">
         The slug stays unchanged when the title changes, so existing reader and detail links remain stable.
       </div>
-      {!blobConfigured ? (
+      {!fileStoreConfigured ? (
         <div className="notice">
-          Vercel Blob is not configured. Metadata can still be edited, but replacing files requires BLOB_READ_WRITE_TOKEN.
+          Cloudflare R2 is not configured. Metadata can still be edited, but replacing files requires R2 credentials.
         </div>
       ) : null}
 
@@ -152,7 +152,7 @@ export function AdminBookEditForm({ book, blobConfigured }: AdminBookEditFormPro
             type="file"
             name="bookFile"
             accept=".pdf,.epub,application/pdf,application/epub+zip"
-            disabled={!blobConfigured}
+            disabled={!fileStoreConfigured}
             onChange={(event) => handleFileChange(event, "book")}
           />
           {fieldError("bookFile")}
@@ -166,7 +166,7 @@ export function AdminBookEditForm({ book, blobConfigured }: AdminBookEditFormPro
             type="file"
             name="coverFile"
             accept="image/png,image/jpeg,image/webp,image/avif"
-            disabled={!blobConfigured}
+            disabled={!fileStoreConfigured}
             onChange={(event) => handleFileChange(event, "cover")}
           />
           {fieldError("coverFile")}

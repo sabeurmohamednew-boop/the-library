@@ -4,7 +4,7 @@ import { AdminImportForm } from "@/components/admin/AdminImportForm";
 import { AdminLogin } from "@/components/admin/AdminLogin";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { adminPasswordConfigured, isAdminSession } from "@/lib/adminAuth";
-import { blobStoreConfigured } from "@/lib/storage";
+import { fileStoreConfigured } from "@/lib/storage";
 
 export const dynamic = "force-dynamic";
 
@@ -33,7 +33,7 @@ export default async function AdminImportPage() {
       {!configured ? (
         <div className="error-state">Set ADMIN_PASSWORD in the environment before using the import page.</div>
       ) : authenticated ? (
-        <AdminImportForm blobConfigured={blobStoreConfigured()} />
+        <AdminImportForm fileStoreConfigured={fileStoreConfigured()} />
       ) : (
         <AdminLogin />
       )}

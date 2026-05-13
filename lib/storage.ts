@@ -15,6 +15,19 @@ export function blobStoreConfigured() {
   return Boolean(process.env.BLOB_READ_WRITE_TOKEN?.trim());
 }
 
+export function r2StoreConfigured() {
+  return Boolean(
+    process.env.R2_ACCOUNT_ID?.trim() &&
+      process.env.R2_BUCKET_NAME?.trim() &&
+      process.env.R2_ACCESS_KEY_ID?.trim() &&
+      process.env.R2_SECRET_ACCESS_KEY?.trim(),
+  );
+}
+
+export function fileStoreConfigured() {
+  return r2StoreConfigured() || blobStoreConfigured();
+}
+
 export function sanitizeFileStem(value: string) {
   const sanitized = value
     .normalize("NFKD")
