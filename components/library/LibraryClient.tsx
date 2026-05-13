@@ -145,6 +145,7 @@ export function LibraryClient({ books }: LibraryClientProps) {
   const hasActiveFilters = Boolean(deferredSearch.trim() || format || category || bookmarkedOnly);
   const hasAnyBookBookmarks = bookmarkedSlugs.size > 0;
   const noBookmarkedBooks = bookmarkedOnly && !hasAnyBookBookmarks;
+  const continuePrioritySlug = recentBooks[0]?.slug ?? "";
 
   const authorRows = useMemo(() => {
     return buildAuthorRows(filteredBooks);
@@ -416,7 +417,12 @@ export function LibraryClient({ books }: LibraryClientProps) {
         ) : view === "gallery" ? (
           <div className="gallery-grid">
             {visibleBooks.map((book, index) => (
-              <BookCard key={book.slug} book={book} started={(readerStates.get(book.slug)?.progress ?? 0) > 0} imagePriority={index < 4} />
+              <BookCard
+                key={book.slug}
+                book={book}
+                started={(readerStates.get(book.slug)?.progress ?? 0) > 0}
+                imagePriority={index < 4 && book.slug !== continuePrioritySlug}
+              />
             ))}
           </div>
         ) : view === "cover" ? (

@@ -42,6 +42,8 @@ vercel env pull .env.local
 
 Next.js reads `.env.local` automatically. Prisma CLI commands such as `npm run db:migrate` read `.env`, so either copy the Neon `DATABASE_URL` and `DIRECT_URL` into `.env` for local migration work or export them in your shell before running Prisma commands. Keep the R2 access key and secret in server-side environment variables only; they are used by server routes and are never exposed to client-side code.
 
+`R2_PUBLIC_BASE_URL` is optional and is safe to leave empty. When it is empty, cover images are proxied through `/api/books/[slug]/cover`. When it is set to a public R2/custom-domain URL, the homepage builds cover image URLs as `${R2_PUBLIC_BASE_URL}/${coverBlobPath}` and Next.js optimizes those remote images directly. Book files are never served from this public URL by app code; EPUB/PDF files continue to use the private `/api/books/[slug]/file` route with range support.
+
 ## Setup
 
 ```bash
@@ -149,6 +151,8 @@ Public readers still access books through stable app routes:
 /api/books/[slug]/cover
 ```
 
+If `R2_PUBLIC_BASE_URL` is set, cover images use that public URL directly instead of the cover API route. The cover API route remains as the fallback path and uses long-lived CDN cache headers for immutable cover objects.
+
 Downloads use:
 
 ```text
@@ -170,7 +174,12 @@ R2_ENDPOINT="https://a3ce49be97bcba2cbf406de154b5f8b4.r2.cloudflarestorage.com"
 R2_PUBLIC_BASE_URL=""
 ```
 
-`R2_PUBLIC_BASE_URL` is optional because the app proxies files through server routes. Set it only if you later attach a public R2/custom domain and want stored metadata URLs to point at it.
+`R2_PUBLIC_BASE_URL` is optional:
+
+- Leave it empty to proxy covers through `/api/books/[slug]/cover`.
+- Set it to a public R2/custom-domain URL to serve covers directly and reduce app route requests.
+
+Because `the-library-files` contains both `books/` and `covers/`, do not enable bucket-wide public access unless you accept that objects under `books/` could also be publicly reachable by direct key. To keep book files private while making covers public, use a Cloudflare Worker or a separate public covers bucket/domain that only serves `covers/*`, then set `R2_PUBLIC_BASE_URL` to that public covers root. The app still proxies `/api/books/[slug]/file` and does not expose R2 credentials.
 
 ## Reader Features
 
