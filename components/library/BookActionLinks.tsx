@@ -1,7 +1,4 @@
-"use client";
-
 import Link from "next/link";
-import { trackDownloadClick, trackReadClick } from "@/lib/analytics";
 import type { BookDTO } from "@/lib/types";
 
 type BookActionLinksProps = {
@@ -17,10 +14,10 @@ export function BookActionLinks({
 }: BookActionLinksProps) {
   return (
     <>
-      <Link className={readClassName} href={`/read/${book.slug}`} prefetch={false} onClick={() => trackReadClick(book)}>
+      <Link className={readClassName} href={`/read/${book.slug}`} prefetch={false}>
         Read
       </Link>
-      <a className={downloadClassName} href={`/api/books/${book.slug}/file?download=1`} onClick={() => trackDownloadClick(book)}>
+      <a className={downloadClassName} href={`/api/books/${book.slug}/file?download=1`}>
         Download
       </a>
     </>

@@ -1,39 +1,32 @@
 "use client";
 
-import { Search } from "lucide-react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
+import { Search } from "lucide-react";
+import type { ReactNode } from "react";
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { trackResumeClick } from "@/lib/analytics";
 import { BOOK_CATEGORIES, BOOK_FORMATS, LIBRARY_PAGE_SIZE } from "@/lib/config";
 import { getReaderStatesForLibrary, loadBookmarkedSlugs } from "@/lib/clientStorage";
-import { authorPath, bookAuthors, buildAuthorRows } from "@/lib/authors";
-import { displayAuthorName, displayBookTitle } from "@/lib/bookDisplay";
+import { displayBookTitle } from "@/lib/bookDisplay";
 import { normalizeSearch } from "@/lib/text";
-import type { LibraryBookDTO, ReaderState } from "@/lib/types";
+import type { ReaderState } from "@/lib/types";
 import { AuthorLinks } from "@/components/library/AuthorLinks";
-import { BookCard } from "@/components/library/BookCard";
 import { BookCover } from "@/components/library/BookCover";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import type { IndexedLibraryBook, ListMode, SortMode, ViewMode } from "@/components/library/libraryViewTypes";
 
-type ViewMode = "gallery" | "list" | "cover";
-type ListMode = "titles" | "authors";
-type SortMode =
-  | "title-asc"
-  | "title-desc"
-  | "publication-desc"
-  | "publication-asc"
-  | "upload-desc"
-  | "upload-asc";
+const InteractiveLibraryResults = dynamic(
+  () => import("@/components/library/InteractiveLibraryResults").then((mod) => mod.InteractiveLibraryResults),
+  {
+    ssr: false,
+    loading: () => <div className="gallery-grid skeleton-grid" aria-hidden="true" />,
+  },
+);
 
 type LibraryClientProps = {
-  books: LibraryBookDTO[];
-};
-
-type IndexedBook = {
-  book: LibraryBookDTO;
-  searchText: string;
-  publicationTime: number;
-  uploadTime: number;
+  books: IndexedLibraryBook[];
+  initialBrowse: ReactNode;
 };
 
 function scheduleClientStateLoad(callback: () => void) {
@@ -46,7 +39,32 @@ function scheduleClientStateLoad(callback: () => void) {
   return () => globalThis.clearTimeout(id);
 }
 
-export function LibraryClient({ books }: LibraryClientProps) {
+function countResults(
+  books: IndexedLibraryBook[],
+  {
+    query,
+    format,
+    category,
+    bookmarkedOnly,
+    bookmarkedSlugs,
+  }: {
+    query: string;
+    format: string;
+    category: string;
+    bookmarkedOnly: boolean;
+    bookmarkedSlugs: Set<string>;
+  },
+) {
+  return books.filter((book) => {
+    if (format && book.format !== format) return false;
+    if (category && book.category !== category) return false;
+    if (bookmarkedOnly && !bookmarkedSlugs.has(book.slug)) return false;
+    if (!query) return true;
+    return book.searchText.includes(query);
+  }).length;
+}
+
+export function LibraryClient({ books, initialBrowse }: LibraryClientProps) {
   const [view, setView] = useState<ViewMode>("gallery");
   const [listMode, setListMode] = useState<ListMode>("titles");
   const [sort, setSort] = useState<SortMode>("title-asc");
@@ -58,6 +76,7 @@ export function LibraryClient({ books }: LibraryClientProps) {
   const [readerStates, setReaderStates] = useState<Map<string, ReaderState>>(new Map());
   const [bookmarkedSlugs, setBookmarkedSlugs] = useState<Set<string>>(new Set());
   const [clientStateReady, setClientStateReady] = useState(false);
+  const [resultsActivated, setResultsActivated] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
   const deferredSearch = useDeferredValue(search);
 
@@ -87,49 +106,9 @@ export function LibraryClient({ books }: LibraryClientProps) {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  const indexedBooks = useMemo<IndexedBook[]>(() => {
-    return books.map((book) => ({
-      book,
-      searchText: normalizeSearch(`${book.title} ${book.author} ${bookAuthors(book).join(" ")} ${book.description}`),
-      publicationTime: new Date(book.publicationDate).getTime(),
-      uploadTime: new Date(book.uploadDate).getTime(),
-    }));
-  }, [books]);
-
-  const filteredBooks = useMemo(() => {
-    const query = normalizeSearch(deferredSearch);
-
-    return indexedBooks
-      .filter((item) => {
-        const { book } = item;
-        if (format && book.format !== format) return false;
-        if (category && book.category !== category) return false;
-        if (bookmarkedOnly && !bookmarkedSlugs.has(book.slug)) return false;
-
-        if (!query) return true;
-        return item.searchText.includes(query);
-      })
-      .sort((a, b) => {
-        switch (sort) {
-          case "title-desc":
-            return b.book.title.localeCompare(a.book.title);
-          case "publication-desc":
-            return b.publicationTime - a.publicationTime;
-          case "publication-asc":
-            return a.publicationTime - b.publicationTime;
-          case "upload-desc":
-            return b.uploadTime - a.uploadTime;
-          case "upload-asc":
-            return a.uploadTime - b.uploadTime;
-          case "title-asc":
-          default:
-            return a.book.title.localeCompare(b.book.title);
-        }
-      })
-      .map((item) => item.book);
-  }, [bookmarkedOnly, bookmarkedSlugs, category, deferredSearch, format, indexedBooks, sort]);
-
   const recentBooks = useMemo(() => {
+    if (!clientStateReady) return [];
+
     return books
       .filter((book) => (readerStates.get(book.slug)?.progress ?? 0) > 0)
       .sort((a, b) => {
@@ -138,18 +117,7 @@ export function LibraryClient({ books }: LibraryClientProps) {
         return new Date(bOpened).getTime() - new Date(aOpened).getTime();
       })
       .slice(0, 6);
-  }, [books, readerStates]);
-
-  const visibleBooks = filteredBooks.slice(0, visibleCount);
-  const canLoadMore = visibleCount < filteredBooks.length;
-  const hasActiveFilters = Boolean(deferredSearch.trim() || format || category || bookmarkedOnly);
-  const hasAnyBookBookmarks = bookmarkedSlugs.size > 0;
-  const noBookmarkedBooks = bookmarkedOnly && !hasAnyBookBookmarks;
-  const continuePrioritySlug = recentBooks[0]?.slug ?? "";
-
-  const authorRows = useMemo(() => {
-    return buildAuthorRows(filteredBooks);
-  }, [filteredBooks]);
+  }, [books, clientStateReady, readerStates]);
 
   const browseCopy = {
     gallery: {
@@ -166,7 +134,26 @@ export function LibraryClient({ books }: LibraryClientProps) {
     },
   }[view];
 
-  function resumeDetailFor(book: LibraryBookDTO) {
+  const activeResultsCount = useMemo(() => {
+    if (!resultsActivated) return books.length;
+
+    return countResults(books, {
+      query: normalizeSearch(deferredSearch),
+      format,
+      category,
+      bookmarkedOnly,
+      bookmarkedSlugs,
+    });
+  }, [bookmarkedOnly, bookmarkedSlugs, books, category, deferredSearch, format, resultsActivated]);
+
+  const canLoadMore = view !== "list" && visibleCount < activeResultsCount;
+  const showInitialBrowse = !resultsActivated && view === "gallery" && sort === "title-asc" && !format && !category && !bookmarkedOnly && !deferredSearch.trim();
+
+  function activateResults() {
+    setResultsActivated(true);
+  }
+
+  function resumeDetailFor(book: IndexedLibraryBook) {
     const state = readerStates.get(book.slug);
     if (!state) return "";
     if (state.locationLabel) return state.locationLabel;
@@ -178,6 +165,7 @@ export function LibraryClient({ books }: LibraryClientProps) {
     setFormat("");
     setCategory("");
     setBookmarkedOnly(false);
+    setResultsActivated(true);
   }
 
   return (
@@ -198,7 +186,10 @@ export function LibraryClient({ books }: LibraryClientProps) {
                 className="field"
                 type="search"
                 value={search}
-                onChange={(event) => setSearch(event.target.value)}
+                onChange={(event) => {
+                  setSearch(event.target.value);
+                  setResultsActivated(true);
+                }}
                 placeholder="Search title, author, or description"
                 aria-label="Search books"
               />
@@ -209,7 +200,15 @@ export function LibraryClient({ books }: LibraryClientProps) {
 
       <section className="toolbar library-filterbar" aria-label="Library controls">
         <div className="toolbar-filters">
-          <select className="select" value={sort} onChange={(event) => setSort(event.target.value as SortMode)} aria-label="Sort books">
+          <select
+            className="select"
+            value={sort}
+            onChange={(event) => {
+              setSort(event.target.value as SortMode);
+              activateResults();
+            }}
+            aria-label="Sort books"
+          >
             <option value="title-asc">Title A-Z</option>
             <option value="title-desc">Title Z-A</option>
             <option value="publication-desc">Publication date newest</option>
@@ -218,7 +217,15 @@ export function LibraryClient({ books }: LibraryClientProps) {
             <option value="upload-asc">Upload date oldest</option>
           </select>
 
-          <select className="select" value={format} onChange={(event) => setFormat(event.target.value)} aria-label="Filter by format">
+          <select
+            className="select"
+            value={format}
+            onChange={(event) => {
+              setFormat(event.target.value);
+              activateResults();
+            }}
+            aria-label="Filter by format"
+          >
             <option value="">All formats</option>
             {BOOK_FORMATS.map((item) => (
               <option key={item.value} value={item.value}>
@@ -227,7 +234,15 @@ export function LibraryClient({ books }: LibraryClientProps) {
             ))}
           </select>
 
-          <select className="select" value={category} onChange={(event) => setCategory(event.target.value)} aria-label="Filter by category">
+          <select
+            className="select"
+            value={category}
+            onChange={(event) => {
+              setCategory(event.target.value);
+              activateResults();
+            }}
+            aria-label="Filter by category"
+          >
             <option value="">All categories</option>
             {BOOK_CATEGORIES.map((item) => (
               <option key={item.value} value={item.value}>
@@ -240,13 +255,16 @@ export function LibraryClient({ books }: LibraryClientProps) {
             <input
               type="checkbox"
               checked={bookmarkedOnly}
-              onChange={(event) => setBookmarkedOnly(event.target.checked)}
+              onChange={(event) => {
+                setBookmarkedOnly(event.target.checked);
+                activateResults();
+              }}
             />
             Bookmarked only
           </label>
 
           <span className="results-count">
-            {filteredBooks.length.toLocaleString()} {filteredBooks.length === 1 ? "result" : "results"}
+            {activeResultsCount.toLocaleString()} {activeResultsCount === 1 ? "result" : "results"}
           </span>
         </div>
 
@@ -257,7 +275,10 @@ export function LibraryClient({ books }: LibraryClientProps) {
                 key={mode}
                 type="button"
                 className={view === mode ? "segmented-button active" : "segmented-button"}
-                onClick={() => setView(mode)}
+                onClick={() => {
+                  setView(mode);
+                  activateResults();
+                }}
               >
                 {mode[0].toUpperCase() + mode.slice(1)}
               </button>
@@ -380,14 +401,20 @@ export function LibraryClient({ books }: LibraryClientProps) {
               <button
                 type="button"
                 className={listMode === "titles" ? "segmented-button active" : "segmented-button"}
-                onClick={() => setListMode("titles")}
+                onClick={() => {
+                  setListMode("titles");
+                  activateResults();
+                }}
               >
                 Titles
               </button>
               <button
                 type="button"
                 className={listMode === "authors" ? "segmented-button active" : "segmented-button"}
-                onClick={() => setListMode("authors")}
+                onClick={() => {
+                  setListMode("authors");
+                  activateResults();
+                }}
               >
                 Authors
               </button>
@@ -395,87 +422,38 @@ export function LibraryClient({ books }: LibraryClientProps) {
           ) : null}
         </div>
 
-        {filteredBooks.length === 0 ? (
-          <div className="empty-state empty-state-card library-empty-state">
-            <span className="empty-state-mark" aria-hidden="true">
-              {books.length === 0 ? "Books" : noBookmarkedBooks ? "Save" : "Search"}
-            </span>
-            <h3>{books.length === 0 ? "Your library is ready for books." : noBookmarkedBooks ? "No bookmarked books yet." : "No books match this view."}</h3>
-            <p>
-              {books.length === 0
-                ? "Once books are added, they will appear here for browsing and reading."
-                : noBookmarkedBooks
-                  ? "Bookmark a book from its detail page or save a reader location to keep it close."
-                  : "Try a broader search, choose fewer filters, or return to the full library."}
-            </p>
-            {hasActiveFilters ? (
-              <button className="button primary" type="button" onClick={resetSearchAndFilters}>
-                Reset search and filters
-              </button>
-            ) : null}
-          </div>
-        ) : view === "gallery" ? (
-          <div className="gallery-grid">
-            {visibleBooks.map((book, index) => (
-              <BookCard
-                key={book.slug}
-                book={book}
-                started={(readerStates.get(book.slug)?.progress ?? 0) > 0}
-                imagePriority={index < 4 && book.slug !== continuePrioritySlug}
-              />
-            ))}
-          </div>
-        ) : view === "cover" ? (
-          <div className="cover-grid">
-            {visibleBooks.map((book) => {
-              const bookTitle = displayBookTitle(book.title);
-
-              return (
-                <Link key={book.slug} className="cover-link" href={`/books/${book.slug}`} aria-label={`Open details for ${bookTitle}`} prefetch={false}>
-                    <BookCover
-                      book={{ slug: book.slug, title: bookTitle, format: book.format, coverBlobPath: book.coverBlobPath, updatedAt: book.updatedAt }}
-                      priority={false}
-                      sizes="(max-width: 560px) 30vw, (max-width: 860px) 18vw, 112px"
-                    />
-                </Link>
-              );
-            })}
-          </div>
-        ) : listMode === "titles" ? (
-          <div className="library-list book-list">
-            {visibleBooks.map((book) => {
-              const bookTitle = displayBookTitle(book.title);
-
-              return (
-                <Link key={book.slug} className="title-list-item" href={`/books/${book.slug}`} title={bookTitle} prefetch={false}>
-                  <span className="title-list-title">{bookTitle}</span>
-                  <span className="title-list-meta" aria-label={`${book.format}, ${book.pageCount.toLocaleString()} pages`}>
-                    <span className="title-list-format">{book.format}</span>
-                    <span>{book.pageCount.toLocaleString()} pages</span>
-                  </span>
-                </Link>
-              );
-            })}
-          </div>
+        {showInitialBrowse ? (
+          initialBrowse
         ) : (
-          <div className="library-list author-list">
-            {authorRows.slice(0, visibleCount).map(({ author, count }) => (
-              <Link key={authorPath(author)} className="list-item author-list-item" href={authorPath(author)} aria-label={`View books by ${displayAuthorName(author)}`} prefetch={false}>
-                <span>{displayAuthorName(author)}</span>
-                <span className="muted small">
-                  {count} {count === 1 ? "book" : "books"}
-                </span>
-              </Link>
-            ))}
-          </div>
+          <InteractiveLibraryResults
+            books={books}
+            view={view}
+            listMode={listMode}
+            sort={sort}
+            format={format}
+            category={category}
+            bookmarkedOnly={bookmarkedOnly}
+            search={deferredSearch}
+            visibleCount={visibleCount}
+            readerStates={readerStates}
+            bookmarkedSlugs={bookmarkedSlugs}
+            onReset={resetSearchAndFilters}
+          />
         )}
 
-        {canLoadMore && view !== "list" ? (
+        {canLoadMore ? (
           <div className="section-heading">
             <span className="muted small">
-              Showing {visibleBooks.length.toLocaleString()} of {filteredBooks.length.toLocaleString()}
+              Showing {Math.min(visibleCount, activeResultsCount).toLocaleString()} of {activeResultsCount.toLocaleString()}
             </span>
-            <button className="button" type="button" onClick={() => setVisibleCount((count) => count + LIBRARY_PAGE_SIZE[view])}>
+            <button
+              className="button"
+              type="button"
+              onClick={() => {
+                setResultsActivated(true);
+                setVisibleCount((count) => count + LIBRARY_PAGE_SIZE[view]);
+              }}
+            >
               Load more
             </button>
           </div>

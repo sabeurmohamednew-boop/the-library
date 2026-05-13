@@ -1,12 +1,8 @@
-"use client";
-
 import Image from "next/image";
-import { useEffect, useState } from "react";
 import { displayBookTitle } from "@/lib/bookDisplay";
 import type { BookCoverDTO } from "@/lib/types";
 
 const publicR2BaseUrl = process.env.NEXT_PUBLIC_R2_PUBLIC_BASE_URL?.replace(/\/+$/, "") || "";
-const loggedSources = new Set<string>();
 
 type BookCoverProps = {
   book: BookCoverDTO;
@@ -39,28 +35,9 @@ export function coverSrcFor(book: BookCoverProps["book"]) {
 }
 
 export function BookCover({ book, className, priority = false, sizes = "(max-width: 560px) 108px, (max-width: 860px) 33vw, 214px" }: BookCoverProps) {
-  const { src: coverSrc, source } = coverSrcFor(book);
+  const { src: coverSrc } = coverSrcFor(book);
   const bookTitle = displayBookTitle(book.title);
-  const [failedSrc, setFailedSrc] = useState<string | null>(null);
-  const failed = failedSrc === coverSrc;
   const coverClassName = ["book-cover-image", className].filter(Boolean).join(" ");
-
-  useEffect(() => {
-    if (process.env.NODE_ENV === "production") return;
-
-    const logKey = `${source}:${book.slug}`;
-    if (loggedSources.has(logKey)) return;
-    loggedSources.add(logKey);
-    console.info("[book-cover] source", { slug: book.slug, source });
-  }, [book.slug, source]);
-
-  if (failed) {
-    return (
-      <div className={["book-cover-fallback", "cover-fallback", className].filter(Boolean).join(" ")}>
-        <span>{book.format}</span>
-      </div>
-    );
-  }
 
   return (
     <Image
@@ -70,7 +47,6 @@ export function BookCover({ book, className, priority = false, sizes = "(max-wid
       sizes={sizes}
       priority={priority}
       className={coverClassName}
-      onError={() => setFailedSrc(coverSrc)}
     />
   );
 }

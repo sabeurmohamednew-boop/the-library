@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { memo } from "react";
 import { TRUNCATION_LIMITS } from "@/lib/config";
 import { displayBookDescription, displayBookTitle, displayCategoryLabel, displayPublicationDate } from "@/lib/bookDisplay";
 import { truncateText } from "@/lib/text";
@@ -14,7 +13,7 @@ type BookCardProps = {
   imagePriority?: boolean;
 };
 
-function BookCardComponent({ book, started, imagePriority = false }: BookCardProps) {
+export function BookCard({ book, started, imagePriority = false }: BookCardProps) {
   const bookTitle = displayBookTitle(book.title);
   const title = truncateText(bookTitle, TRUNCATION_LIMITS.title);
   const description = truncateText(displayBookDescription(book.description), TRUNCATION_LIMITS.description);
@@ -57,5 +56,3 @@ function BookCardComponent({ book, started, imagePriority = false }: BookCardPro
     </article>
   );
 }
-
-export const BookCard = memo(BookCardComponent);
