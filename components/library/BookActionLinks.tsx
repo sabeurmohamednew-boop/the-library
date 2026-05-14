@@ -14,10 +14,10 @@ export function BookActionLinks({
 }: BookActionLinksProps) {
   return (
     <>
-      <Link className={readClassName} href={`/read/${book.slug}`} prefetch={false}>
+      <Link className={readClassName} href={`/read/${book.slug}`} aria-label={`Read ${book.title}`} prefetch={false}>
         Read
       </Link>
-      <a className={downloadClassName} href={`/api/books/${book.slug}/file?download=1`}>
+      <a className={downloadClassName} href={`/api/books/${book.slug}/file?download=1`} aria-label={`Download ${book.title}`}>
         Download
       </a>
     </>

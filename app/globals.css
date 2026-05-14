@@ -17,8 +17,8 @@
   --surface-muted-rgb: 239 239 237;
   --ink: var(--text);
   --ink-muted: var(--muted);
-  --ink-soft: #8b9088;
-  --ink-soft-rgb: 139 144 136;
+  --ink-soft: #6c7269;
+  --ink-soft-rgb: 108 114 105;
   --line: var(--border);
   --line-strong: #c8cbc4;
   --accent: var(--primary);
@@ -145,9 +145,6 @@ body {
   line-height: 1.5;
   letter-spacing: 0;
   overflow-x: clip;
-  transition:
-    background-color 180ms ease,
-    color 180ms ease;
 }
 
 a {
@@ -331,7 +328,6 @@ canvas {
     border-color 140ms ease,
     background 140ms ease,
     color 140ms ease,
-    box-shadow 140ms ease,
     filter 140ms ease,
     transform 140ms ease;
 }
@@ -343,12 +339,6 @@ canvas {
   border-color: var(--accent);
   color: var(--accent);
   transform: translateY(-1px);
-}
-
-.button:hover,
-.icon-button:hover,
-.segmented-button:hover {
-  box-shadow: 0 5px 14px rgb(var(--shadow-rgb) / 0.075);
 }
 
 .button.primary:hover,
@@ -433,8 +423,7 @@ canvas {
   padding: 10px 12px;
   transition:
     border-color 150ms ease,
-    background 150ms ease,
-    box-shadow 150ms ease;
+    background 150ms ease;
 }
 
 .textarea {
@@ -524,8 +513,7 @@ canvas {
   box-shadow: inset 0 1px 2px rgb(var(--shadow-rgb) / 0.08);
   transition:
     background 150ms ease,
-    border-color 150ms ease,
-    box-shadow 150ms ease;
+    border-color 150ms ease;
 }
 
 .library-filterbar .chip input:checked {
@@ -709,9 +697,7 @@ canvas {
   min-height: 548px;
   min-width: 0;
   box-shadow: var(--shadow-soft);
-  transition:
-    border-color 140ms ease,
-    box-shadow 140ms ease;
+  transition: border-color 140ms ease;
 }
 
 .book-card:hover {
@@ -1028,8 +1014,7 @@ canvas {
   border-bottom: 1px solid var(--line);
   transition:
     background 140ms ease,
-    color 140ms ease,
-    box-shadow 140ms ease;
+    color 140ms ease;
 }
 
 .title-list-item:last-child {
@@ -1039,7 +1024,6 @@ canvas {
 .title-list-item:hover,
 .title-list-item:focus-visible {
   background: var(--hover-bg);
-  box-shadow: inset 3px 0 0 rgb(var(--primary-rgb) / 0.34);
 }
 
 .title-list-title {
@@ -1158,7 +1142,6 @@ canvas {
   transition:
     border-color 160ms ease,
     background 160ms ease,
-    box-shadow 160ms ease,
     transform 160ms ease;
 }
 
@@ -1170,7 +1153,6 @@ canvas {
 .continue-card:focus-within {
   border-color: rgb(var(--primary-rgb) / 0.22);
   background: var(--continue-card-hover-bg);
-  box-shadow: 0 13px 30px rgb(var(--shadow-rgb) / 0.12);
   transform: translateY(-2px);
 }
 
@@ -1323,13 +1305,11 @@ canvas {
   border-radius: var(--radius);
   transition:
     border-color 140ms ease,
-    transform 140ms ease,
-    box-shadow 140ms ease;
+    transform 140ms ease;
 }
 
 .cover-grid .cover-link:hover {
   border-color: var(--accent);
-  box-shadow: var(--shadow-lift);
   transform: translateY(-2px);
 }
 
@@ -1469,9 +1449,7 @@ kbd {
 
 .skeleton {
   border-radius: var(--radius);
-  background: var(--skeleton-bg);
-  background-size: 240% 100%;
-  animation: shimmer 1.2s ease-in-out infinite;
+  background: var(--reader-skeleton-base);
 }
 
 .book-card-skeleton {
@@ -1630,15 +1608,6 @@ kbd {
 .author-count-skeleton {
   width: 70px;
   height: 28px;
-}
-
-@keyframes shimmer {
-  from {
-    background-position: 100% 0;
-  }
-  to {
-    background-position: -100% 0;
-  }
 }
 
 @media (max-width: 860px) {
@@ -2049,7 +2018,6 @@ kbd {
       border-color 160ms ease,
       background 160ms ease,
       color 160ms ease,
-      box-shadow 160ms ease,
       transform 160ms ease;
   }
 
@@ -3386,11 +3354,8 @@ html[data-theme="dark"] .author-page-heading > span {
   *,
 *::before,
 *::after {
+    animation: none !important;
     scroll-behavior: auto !important;
-  }
-
-  .skeleton {
-    animation: none;
-    transition: none;
+    transition: none !important;
   }
 }

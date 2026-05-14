@@ -369,7 +369,13 @@ export function LibraryClient({
                         <span className="continue-progress-fill" style={{ width: `${Math.round(progress * 100)}%` }} />
                       </span>
                     </div>
-                    <Link className="button primary continue-resume" href={`/read/${book.slug}`} prefetch={false} onClick={() => trackResumeClick(book, progress)}>
+                    <Link
+                      className="button primary continue-resume"
+                      href={`/read/${book.slug}`}
+                      aria-label={`Resume ${bookTitle}`}
+                      prefetch={false}
+                      onClick={() => trackResumeClick(book, progress)}
+                    >
                       Resume
                     </Link>
                   </div>
