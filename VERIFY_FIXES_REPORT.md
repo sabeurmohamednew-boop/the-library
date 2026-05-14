@@ -309,3 +309,45 @@ Console:
   - `Failed to decode downloaded font: blob:http://127.0.0.1:3000/...`
   - `OTS parsing error: CFF : Failed validating CharStrings INDEX / Failed to parse table`
 - These are documented as publisher font fallback warnings. No reader failure or missing text was observed.
+
+## Load More First-Click Fix
+
+Date: 2026-05-14  
+Target tested: local app at `http://localhost:3000/` using `npm run dev`  
+Browser method: Playwright Chromium, desktop viewport `1280x900`, mobile viewport `390x844`
+
+### Root Cause
+
+The first `Load more books` click in `LibraryInteractivityLoader` correctly fetched the full library and mounted `LibraryClient` with `initialVisibleCount={24}`.
+
+On mount, `LibraryClient` immediately ran its reset effect for `[view, sort, format, category, bookmarkedOnly, deferredSearch]` and set `visibleCount` back to the gallery page size of `12`. In development, React Strict Mode also reruns mount effects, so a simple "skip first effect" guard was not enough.
+
+### Files Changed
+
+- `components/library/LibraryClient.tsx`
+- `VERIFY_FIXES_REPORT.md`
+
+### Fix Applied
+
+`LibraryClient` now stores the initial visible-count reset key and only resets `visibleCount` after the actual control state changes. This preserves the loader's first-click `24` count while keeping the existing reset behavior for search, sort, filters, bookmarks, and view changes.
+
+### Verification Steps
+
+- Reproduced the original bug before editing: first click stayed at `12` cards, second click increased to `24`.
+- Verified first click after the fix: `12 -> 24` cards.
+- Verified no document navigation/reload during load more; URL stayed unchanged and no document request was recorded after the click.
+- Verified load more after hydrated search for `the`: `12 -> 24` cards.
+- Verified load more after format filter `EPUB`: `12 -> 24` cards.
+- Verified load more after category filter `SELF_IMPROVEMENT`: `12 -> 17` cards.
+- Verified switching `Gallery -> List -> Cover -> Gallery`, then load more: `12 -> 24` cards.
+- Verified mobile first click at `390x844`: `12 -> 24` cards.
+- Checked browser console and failed network requests during these passes.
+
+### Commands Run
+
+- `npm run lint`
+- `npm run build`
+
+### Result
+
+Passed. `Load more` works on the first click, does not reload the page, and still works after searching, filtering, view switching, and on mobile. No console errors or failed network requests were observed in the focused library verification.

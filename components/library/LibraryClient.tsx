@@ -90,6 +90,8 @@ export function LibraryClient({
   const [resultsActivated, setResultsActivated] = useState(initialResultsActivated);
   const searchRef = useRef<HTMLInputElement>(null);
   const deferredSearch = useDeferredValue(search);
+  const visibleCountResetKey = JSON.stringify([view, sort, format, category, bookmarkedOnly, deferredSearch]);
+  const previousVisibleCountResetKey = useRef(visibleCountResetKey);
 
   useEffect(() => {
     return scheduleClientStateLoad(() => {
@@ -100,8 +102,13 @@ export function LibraryClient({
   }, []);
 
   useEffect(() => {
+    if (previousVisibleCountResetKey.current === visibleCountResetKey) {
+      return;
+    }
+
+    previousVisibleCountResetKey.current = visibleCountResetKey;
     setVisibleCount(LIBRARY_PAGE_SIZE[view]);
-  }, [view, sort, format, category, bookmarkedOnly, deferredSearch]);
+  }, [view, visibleCountResetKey]);
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
