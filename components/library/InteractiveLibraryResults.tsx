@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo } from "react";
-import { LIBRARY_PAGE_SIZE } from "@/lib/config";
+import { LIBRARY_PAGE_SIZE } from "@/lib/libraryConfig";
 import { authorPath, buildAuthorRows } from "@/lib/authors";
 import { displayAuthorName, displayBookTitle } from "@/lib/bookDisplay";
 import { normalizeSearch } from "@/lib/text";

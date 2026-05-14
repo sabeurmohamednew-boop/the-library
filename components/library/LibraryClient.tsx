@@ -6,8 +6,8 @@ import { Search } from "lucide-react";
 import type { ReactNode } from "react";
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { trackResumeClick } from "@/lib/analytics";
-import { BOOK_CATEGORIES, BOOK_FORMATS, LIBRARY_PAGE_SIZE } from "@/lib/config";
-import { getReaderStatesForLibrary, loadBookmarkedSlugs } from "@/lib/clientStorage";
+import { BOOK_CATEGORIES, BOOK_FORMATS, LIBRARY_PAGE_SIZE } from "@/lib/libraryConfig";
+import { getReaderStatesForLibrary, loadBookmarkedSlugs } from "@/lib/libraryClientStorage";
 import { displayBookTitle } from "@/lib/bookDisplay";
 import { normalizeSearch } from "@/lib/text";
 import type { ReaderState } from "@/lib/types";
@@ -26,7 +26,10 @@ const InteractiveLibraryResults = dynamic(
 
 type LibraryClientProps = {
   books: IndexedLibraryBook[];
-  initialBrowse: ReactNode;
+  initialBrowse?: ReactNode;
+  chrome?: boolean;
+  initialResultsActivated?: boolean;
+  initialVisibleCount?: number;
 };
 
 function scheduleClientStateLoad(callback: () => void) {
@@ -64,7 +67,13 @@ function countResults(
   }).length;
 }
 
-export function LibraryClient({ books, initialBrowse }: LibraryClientProps) {
+export function LibraryClient({
+  books,
+  initialBrowse,
+  chrome = true,
+  initialResultsActivated = false,
+  initialVisibleCount = LIBRARY_PAGE_SIZE.gallery,
+}: LibraryClientProps) {
   const [view, setView] = useState<ViewMode>("gallery");
   const [listMode, setListMode] = useState<ListMode>("titles");
   const [sort, setSort] = useState<SortMode>("title-asc");
@@ -72,11 +81,11 @@ export function LibraryClient({ books, initialBrowse }: LibraryClientProps) {
   const [category, setCategory] = useState("");
   const [bookmarkedOnly, setBookmarkedOnly] = useState(false);
   const [search, setSearch] = useState("");
-  const [visibleCount, setVisibleCount] = useState<number>(LIBRARY_PAGE_SIZE.gallery);
+  const [visibleCount, setVisibleCount] = useState<number>(initialVisibleCount);
   const [readerStates, setReaderStates] = useState<Map<string, ReaderState>>(new Map());
   const [bookmarkedSlugs, setBookmarkedSlugs] = useState<Set<string>>(new Set());
   const [clientStateReady, setClientStateReady] = useState(false);
-  const [resultsActivated, setResultsActivated] = useState(false);
+  const [resultsActivated, setResultsActivated] = useState(initialResultsActivated);
   const searchRef = useRef<HTMLInputElement>(null);
   const deferredSearch = useDeferredValue(search);
 
@@ -168,8 +177,9 @@ export function LibraryClient({ books, initialBrowse }: LibraryClientProps) {
     setResultsActivated(true);
   }
 
-  return (
-    <main className="site-shell library-home" id="main">
+  const content = (
+    <>
+      {chrome ? (
       <header className="library-header">
         <div className="library-header-main">
           <div className="library-header-copy">
@@ -197,6 +207,7 @@ export function LibraryClient({ books, initialBrowse }: LibraryClientProps) {
           </div>
         </div>
       </header>
+      ) : null}
 
       <section className="toolbar library-filterbar" aria-label="Library controls">
         <div className="toolbar-filters">
@@ -287,7 +298,7 @@ export function LibraryClient({ books, initialBrowse }: LibraryClientProps) {
         </div>
       </section>
 
-      {!clientStateReady ? (
+      {chrome && !clientStateReady ? (
         <section className="continue-section continue-section-pending" aria-labelledby="recent-heading" aria-busy="true">
           <div className="section-heading">
             <h2 id="recent-heading">Continue reading</h2>
@@ -316,7 +327,7 @@ export function LibraryClient({ books, initialBrowse }: LibraryClientProps) {
             </article>
           </div>
         </section>
-      ) : recentBooks.length > 0 ? (
+      ) : chrome && recentBooks.length > 0 ? (
         <section className="continue-section" aria-labelledby="recent-heading">
           <div className="section-heading">
             <h2 id="recent-heading">Continue reading</h2>
@@ -367,7 +378,7 @@ export function LibraryClient({ books, initialBrowse }: LibraryClientProps) {
             })}
           </div>
         </section>
-      ) : (
+      ) : chrome ? (
         <section className="continue-section continue-empty-section" aria-labelledby="recent-heading">
           <div className="section-heading">
             <h2 id="recent-heading">Continue reading</h2>
@@ -388,7 +399,7 @@ export function LibraryClient({ books, initialBrowse }: LibraryClientProps) {
             ) : null}
           </div>
         </section>
-      )}
+      ) : null}
 
       <section className={`browse-section browse-section-${view}`} aria-labelledby="browse-heading" aria-live="polite" aria-busy={false}>
         <div className="section-heading browse-heading">
@@ -422,7 +433,7 @@ export function LibraryClient({ books, initialBrowse }: LibraryClientProps) {
           ) : null}
         </div>
 
-        {showInitialBrowse ? (
+        {showInitialBrowse && initialBrowse ? (
           initialBrowse
         ) : (
           <InteractiveLibraryResults
@@ -459,6 +470,14 @@ export function LibraryClient({ books, initialBrowse }: LibraryClientProps) {
           </div>
         ) : null}
       </section>
+    </>
+  );
+
+  if (!chrome) return content;
+
+  return (
+    <main className="site-shell library-home" id="main">
+      {content}
     </main>
   );
 }

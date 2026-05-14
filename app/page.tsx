@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
-import { LibraryClient } from "@/components/library/LibraryClient";
 import { LibraryInitialBrowse } from "@/components/library/LibraryInitialBrowse";
+import { LibraryInteractivityLoader } from "@/components/library/LibraryInteractivityLoader";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { RuntimeNotice } from "@/components/RuntimeNotice";
 import { safeGetAllLibraryBooks } from "@/lib/books";
 import { bookAuthors } from "@/lib/authors";
@@ -46,5 +47,23 @@ export default async function HomePage() {
     }))
     .sort((a, b) => a.title.localeCompare(b.title));
 
-  return <LibraryClient books={books} initialBrowse={<LibraryInitialBrowse books={books} />} />;
+  const initialBooks = books.slice(0, 12);
+
+  return (
+    <main className="site-shell library-home" id="main">
+      <header className="library-header">
+        <div className="library-header-main">
+          <div className="library-header-copy">
+            <h1 className="site-title">The Library</h1>
+            <p className="library-subtitle">Find a book, save your place, and return when the page calls you back.</p>
+          </div>
+          <div className="library-header-actions">
+            <ThemeToggle />
+          </div>
+        </div>
+      </header>
+
+      <LibraryInteractivityLoader totalCount={books.length} initialBrowse={<LibraryInitialBrowse books={initialBooks} />} />
+    </main>
+  );
 }

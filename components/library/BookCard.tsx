@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { TRUNCATION_LIMITS } from "@/lib/config";
+import { TRUNCATION_LIMITS } from "@/lib/libraryConfig";
 import { displayBookDescription, displayBookTitle, displayCategoryLabel, displayPublicationDate } from "@/lib/bookDisplay";
 import { truncateText } from "@/lib/text";
 import type { LibraryBookDTO } from "@/lib/types";

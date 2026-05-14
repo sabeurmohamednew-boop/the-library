@@ -1,5 +1,5 @@
 import { bookAuthors, type AuthorSource } from "@/lib/authors";
-import { categoryLabel } from "@/lib/config";
+import { categoryLabel } from "@/lib/libraryConfig";
 import { formatPublicationDate } from "@/lib/formatPublicationDate";
 import type { BookCategory, PublicationDatePrecision } from "@/lib/types";
 
