@@ -2,6 +2,7 @@
 
 import type { ComponentType, ReactNode } from "react";
 import { useState } from "react";
+import { Search } from "lucide-react";
 import type { IndexedLibraryBook } from "@/components/library/libraryViewTypes";
 
 type LibraryInteractivityLoaderProps = {
@@ -14,6 +15,7 @@ type InteractiveLibraryProps = {
   chrome?: boolean;
   initialResultsActivated?: boolean;
   initialVisibleCount?: number;
+  initialSearch?: string;
 };
 
 type LibraryBooksResponse = {
@@ -25,8 +27,12 @@ export function LibraryInteractivityLoader({ totalCount, initialBrowse }: Librar
   const [InteractiveLibrary, setInteractiveLibrary] = useState<ComponentType<InteractiveLibraryProps> | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [pendingSearch, setPendingSearch] = useState("");
+  const [activatedSearch, setActivatedSearch] = useState("");
 
-  async function activateLibrary() {
+  async function activateLibrary(search = pendingSearch) {
+    const nextSearch = search.trim();
+    setActivatedSearch(nextSearch);
     if (books || loading) return;
 
     setLoading(true);
@@ -59,6 +65,7 @@ export function LibraryInteractivityLoader({ totalCount, initialBrowse }: Librar
         chrome={false}
         initialResultsActivated
         initialVisibleCount={24}
+        initialSearch={activatedSearch}
       />
     );
   }
@@ -70,10 +77,29 @@ export function LibraryInteractivityLoader({ totalCount, initialBrowse }: Librar
           <h2 id="browse-heading">Browse library</h2>
           <p className="muted small">Showing the first 12 books. Search, filters, alternate views, and more books load on demand.</p>
         </div>
-        <button className="button" type="button" onClick={activateLibrary} disabled={loading} aria-busy={loading}>
+        <button className="button" type="button" onClick={() => void activateLibrary()} disabled={loading} aria-busy={loading}>
           {loading ? "Loading..." : "Search, filter, and load more"}
         </button>
       </div>
+
+      <form
+        className="library-activation-search search-wrap"
+        role="search"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void activateLibrary(pendingSearch);
+        }}
+      >
+        <Search aria-hidden="true" />
+        <input
+          className="field"
+          type="search"
+          value={pendingSearch}
+          onChange={(event) => setPendingSearch(event.target.value)}
+          placeholder="Search title, author, or description"
+          aria-label="Search books"
+        />
+      </form>
 
       {initialBrowse}
 
@@ -82,7 +108,7 @@ export function LibraryInteractivityLoader({ totalCount, initialBrowse }: Librar
           <span className="muted small">
             Showing 12 of {totalCount.toLocaleString()}
           </span>
-          <button className="button" type="button" onClick={activateLibrary} disabled={loading} aria-busy={loading}>
+          <button className="button" type="button" onClick={() => void activateLibrary()} disabled={loading} aria-busy={loading}>
             {loading ? "Loading..." : "Load more"}
           </button>
         </div>

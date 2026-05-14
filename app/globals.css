@@ -110,6 +110,10 @@ html[data-theme="dark"] {
   color-scheme: dark;
 }
 
+html[data-theme="dark"] .select {
+  color-scheme: dark;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -244,6 +248,9 @@ canvas {
   font-size: clamp(2rem, 3vw, 3.15rem);
   line-height: 0.98;
   font-weight: 760;
+  font-kerning: normal;
+  letter-spacing: 0;
+  word-spacing: normal;
 }
 
 .library-subtitle {
@@ -410,6 +417,15 @@ canvas {
     background 150ms ease;
 }
 
+.select {
+  color-scheme: light;
+}
+
+.select option {
+  background: var(--surface);
+  color: var(--ink);
+}
+
 .textarea {
   min-height: 120px;
   resize: vertical;
@@ -438,11 +454,12 @@ canvas {
 }
 
 .library-filterbar {
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) minmax(180px, 280px) auto;
   gap: 10px;
   align-items: center;
   margin-bottom: 14px;
   min-height: 40px;
+  overflow: visible;
 }
 
 .library-filterbar .toolbar-filters {
@@ -520,6 +537,11 @@ canvas {
   min-width: 0;
 }
 
+.library-activation-search {
+  max-width: min(100%, 560px);
+  margin: -2px 0 14px;
+}
+
 .toolbar-controls,
 .toolbar-filters,
 .toolbar-views,
@@ -564,6 +586,10 @@ canvas {
   min-height: 38px;
   padding-top: 8px;
   padding-bottom: 8px;
+}
+
+.toolbar-search .field {
+  min-width: 0;
 }
 
 .toolbar .chip {
@@ -2796,15 +2822,20 @@ kbd {
     gap: 8px;
     margin-bottom: 14px;
     padding: 8px;
-    overflow: hidden;
+    overflow: visible;
   }
 
   .library-filterbar > *,
 .library-filterbar .toolbar-filters,
 .library-filterbar .toolbar-views,
+.library-filterbar .toolbar-search,
 .library-filterbar .segmented,
 .library-filterbar .chip {
     min-width: 0;
+  }
+
+  .library-filterbar .toolbar-search {
+    width: 100%;
   }
 
   .library-filterbar .toolbar-filters {

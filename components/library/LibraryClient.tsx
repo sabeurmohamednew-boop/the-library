@@ -30,6 +30,7 @@ type LibraryClientProps = {
   chrome?: boolean;
   initialResultsActivated?: boolean;
   initialVisibleCount?: number;
+  initialSearch?: string;
 };
 
 function scheduleClientStateLoad(callback: () => void) {
@@ -73,6 +74,7 @@ export function LibraryClient({
   chrome = true,
   initialResultsActivated = false,
   initialVisibleCount = LIBRARY_PAGE_SIZE.gallery,
+  initialSearch = "",
 }: LibraryClientProps) {
   const [view, setView] = useState<ViewMode>("gallery");
   const [listMode, setListMode] = useState<ListMode>("titles");
@@ -80,7 +82,7 @@ export function LibraryClient({
   const [format, setFormat] = useState("");
   const [category, setCategory] = useState("");
   const [bookmarkedOnly, setBookmarkedOnly] = useState(false);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(initialSearch);
   const [visibleCount, setVisibleCount] = useState<number>(initialVisibleCount);
   const [readerStates, setReaderStates] = useState<Map<string, ReaderState>>(new Map());
   const [bookmarkedSlugs, setBookmarkedSlugs] = useState<Set<string>>(new Set());
@@ -278,6 +280,24 @@ export function LibraryClient({
             {activeResultsCount.toLocaleString()} {activeResultsCount === 1 ? "result" : "results"}
           </span>
         </div>
+
+        {!chrome || resultsActivated || search ? (
+          <div className="toolbar-search search-wrap">
+            <Search aria-hidden="true" />
+            <input
+              ref={chrome ? undefined : searchRef}
+              className="field"
+              type="search"
+              value={search}
+              onChange={(event) => {
+                setSearch(event.target.value);
+                activateResults();
+              }}
+              placeholder="Search books"
+              aria-label="Search books"
+            />
+          </div>
+        ) : null}
 
         <div className="toolbar-views">
           <div className="segmented" role="group" aria-label="Choose library view">

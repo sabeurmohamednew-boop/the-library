@@ -1008,6 +1008,41 @@ function progressFromCfi(book: any, cfi: string) {
   return 0;
 }
 
+function epubLocationCount(book: any) {
+  try {
+    const count = book?.locations?.length?.();
+    return typeof count === "number" && Number.isFinite(count) ? count : 0;
+  } catch {
+    return 0;
+  }
+}
+
+function hasGeneratedEpubLocations(book: any) {
+  return epubLocationCount(book) > 1;
+}
+
+function labelFromEpubLocation(book: any, location: any, progress: number) {
+  const displayed = location?.start?.displayed;
+  const page = Number(displayed?.page);
+  const total = Number(displayed?.total);
+
+  if (Number.isFinite(page) && Number.isFinite(total) && page >= 1 && total > 1) {
+    return `Location ${page} of ${total}`;
+  }
+
+  if (!hasGeneratedEpubLocations(book)) {
+    return "Calculating location";
+  }
+
+  return `${Math.round(progress * 100)}%`;
+}
+
+function searchResultKey(cfi: string, href: string, excerpt: string) {
+  const normalizedCfi = cfi.replace(/\s+/g, "");
+  if (normalizedCfi) return `cfi:${normalizedCfi}`;
+  return `text:${href.trim().toLowerCase()}::${excerpt.replace(/\s+/g, " ").trim().toLowerCase()}`;
+}
+
 function currentReadableText(rendition: any): ReaderReadableText | null {
   const contents = typeof rendition?.getContents === "function" ? rendition.getContents() : [];
   const content = contents[0];
@@ -1217,8 +1252,10 @@ export function EpubReader({
   const destroyedRef = useRef(false);
   const handledCommand = useRef(0);
   const lastCfi = useRef("");
+  const lastLocationSignature = useRef("");
   const initialCfi = useRef(state.epubCfi);
   const stateEpubCfiRef = useRef(state.epubCfi);
+  const stateProgressRef = useRef(state.progress);
   const appliedAnnotationCfisRef = useRef<string[]>([]);
   const contentKeyboardDocumentsRef = useRef<WeakSet<Document>>(new WeakSet());
   const contentGestureDocumentsRef = useRef<WeakSet<Document>>(new WeakSet());
@@ -1290,6 +1327,10 @@ export function EpubReader({
     stateEpubCfiRef.current = state.epubCfi;
   }, [state.epubCfi]);
 
+  useEffect(() => {
+    stateProgressRef.current = state.progress;
+  }, [state.progress]);
+
   const releasePageTurnAfterSettling = useCallback(() => {
     if (pageTurnSettleTimerRef.current !== null) {
       window.clearTimeout(pageTurnSettleTimerRef.current);
@@ -1356,6 +1397,7 @@ export function EpubReader({
     setLoadMessage("Loading EPUB");
     initialCfi.current = stateEpubCfiRef.current;
     lastCfi.current = "";
+    lastLocationSignature.current = "";
     onError("");
     onLoadStatus({ phase: "idle", message: "Preparing EPUB reader" });
     onTocChange([]);
@@ -1517,13 +1559,15 @@ export function EpubReader({
         const handleRelocated = (location: any) => {
           if (cancelled || destroyedRef.current || failed) return;
           const cfi = location?.start?.cfi;
-          if (!cfi || cfi === lastCfi.current) return;
+          if (!cfi) return;
+
+          const calculatedProgress = progressFromEpubLocation(book, location, cfi);
+          const progress = calculatedProgress > 0 || cfi !== stateEpubCfiRef.current ? calculatedProgress : stateProgressRef.current || 0;
+          const label = labelFromEpubLocation(book, location, progress);
+          const signature = `${cfi}|${progress.toFixed(5)}|${label}`;
+          if (signature === lastLocationSignature.current) return;
           lastCfi.current = cfi;
-
-          const progress = progressFromEpubLocation(book, location, cfi);
-
-          const displayed = location?.start?.displayed;
-          const label = displayed?.page && displayed?.total ? `Location ${displayed.page} of ${displayed.total}` : `${Math.round(progress * 100)}%`;
+          lastLocationSignature.current = signature;
 
           onLocationChange({
             locator: { type: "epub-cfi", cfi },
@@ -1768,7 +1812,13 @@ export function EpubReader({
         });
 
         void book.locations.generate(1000).then(
-          () => devLog("locations.generate:done"),
+          () => {
+            devLog("locations.generate:done", { locations: epubLocationCount(book) });
+            if (cancelled || destroyedRef.current || failed) return;
+            safeCall(() => rendition.reportLocation?.());
+            const currentLocation = typeof rendition.currentLocation === "function" ? rendition.currentLocation() : null;
+            if (currentLocation) handleRelocated(currentLocation);
+          },
           (error: unknown) => devError("locations.generate failed", error),
         );
 
@@ -1896,7 +1946,7 @@ export function EpubReader({
       const progress = Math.max(0, Math.min(1, command.progress));
       void (async () => {
         try {
-          const locationCount = typeof book?.locations?.length === "function" ? book.locations.length() : 0;
+          const locationCount = epubLocationCount(book);
           if (!locationCount) {
             await Promise.resolve(book?.locations?.generate?.(1000));
           }
@@ -1936,6 +1986,7 @@ export function EpubReader({
 
       const spineItems = book.spine?.spineItems ?? [];
       const results: SearchResult[] = [];
+      const seenResults = new Set<string>();
       onSearchStatus({ state: "searching", query, searchedPages: 0, totalPages: spineItems.length, resultCount: 0 });
 
       for (const [index, item] of spineItems.entries()) {
@@ -1946,10 +1997,14 @@ export function EpubReader({
           const found = item.find(query) ?? [];
           for (const match of found) {
             if (!match.cfi) continue;
+            const excerpt = resultExcerpt(match.excerpt ?? "");
+            const key = searchResultKey(match.cfi, item.href || "", excerpt);
+            if (seenResults.has(key)) continue;
+            seenResults.add(key);
             results.push({
               id: `epub-${results.length}-${match.cfi}`,
               label: item.href || "Section",
-              excerpt: resultExcerpt(match.excerpt ?? ""),
+              excerpt,
               locator: { type: "epub-cfi", cfi: match.cfi },
             });
             if (results.length >= 80) break;
