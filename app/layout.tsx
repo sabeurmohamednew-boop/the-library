@@ -2,9 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
-import { PostHogProvider } from "@/components/PostHogProvider";
 import { RouteFreshness } from "@/components/RouteFreshness";
-import { ThemeProvider } from "@/components/ThemeProvider";
 import { SITE_CATEGORY, SITE_NAME, SITE_URL } from "@/lib/seo";
 import "./globals.css";
 
@@ -82,17 +80,13 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
       <body className={inter.variable}>
-        <ThemeProvider>
-          <PostHogProvider>
-            <a className="skip-link" href="#main">
-              Skip to content
-            </a>
-            <RouteFreshness />
-            {children}
-            <Analytics />
-            <SpeedInsights />
-          </PostHogProvider>
-        </ThemeProvider>
+        <a className="skip-link" href="#main">
+          Skip to content
+        </a>
+        <RouteFreshness />
+        {children}
+        <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );

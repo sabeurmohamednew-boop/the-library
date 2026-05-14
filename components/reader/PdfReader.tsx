@@ -1,5 +1,6 @@
 "use client";
 
+import "pdfjs-dist/web/pdf_viewer.css";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type UIEvent } from "react";
 import {
   AnnotationLayer,

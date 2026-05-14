@@ -197,6 +197,36 @@ export function safeGetAllLibraryBooks() {
   return safeRuntime("books.libraryList", getAllLibraryBooks);
 }
 
+export async function getLibraryHomeBooks(take = 12) {
+  noStore();
+  const [totalCount, books] = await Promise.all([
+    prisma.book.count(),
+    prisma.book.findMany({
+      select: libraryBookSelect,
+      orderBy: [{ title: "asc" }],
+      take,
+    }),
+  ]);
+  logBookRead("libraryHome", {
+    count: books.length,
+    totalCount,
+    books: books.map((book) => ({
+      slug: book.slug,
+      title: book.title,
+      author: book.author,
+    })),
+  });
+
+  return {
+    books: (await withPublicationYears(books)).map(serializeLibraryBook),
+    totalCount,
+  };
+}
+
+export function safeGetLibraryHomeBooks(take = 12) {
+  return safeRuntime("books.libraryHome", () => getLibraryHomeBooks(take), { take });
+}
+
 export async function getBookBySlug(slug: string) {
   noStore();
   const book = await prisma.book.findUnique({

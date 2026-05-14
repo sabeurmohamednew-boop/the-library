@@ -3,7 +3,7 @@ import { LibraryInitialBrowse } from "@/components/library/LibraryInitialBrowse"
 import { LibraryInteractivityLoader } from "@/components/library/LibraryInteractivityLoader";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { RuntimeNotice } from "@/components/RuntimeNotice";
-import { safeGetAllLibraryBooks } from "@/lib/books";
+import { safeGetLibraryHomeBooks } from "@/lib/books";
 import { bookAuthors } from "@/lib/authors";
 import { SITE_DESCRIPTION, SITE_TITLE } from "@/lib/seo";
 import { normalizeSearch } from "@/lib/text";
@@ -32,22 +32,19 @@ export const metadata: Metadata = {
 };
 
 export default async function HomePage() {
-  const result = await safeGetAllLibraryBooks();
+  const result = await safeGetLibraryHomeBooks(12);
 
   if (!result.ok) {
     return <RuntimeNotice failure={result.error} title="The Library could not load." adminHref="/admin" />;
   }
 
-  const books = result.data
+  const initialBooks = result.data.books
     .map((book) => ({
       ...book,
       searchText: normalizeSearch(`${book.title} ${book.author} ${bookAuthors(book).join(" ")} ${book.description}`),
       publicationTime: new Date(book.publicationDate).getTime(),
       uploadTime: new Date(book.uploadDate).getTime(),
-    }))
-    .sort((a, b) => a.title.localeCompare(b.title));
-
-  const initialBooks = books.slice(0, 12);
+    }));
 
   return (
     <main className="site-shell library-home" id="main">
@@ -63,7 +60,7 @@ export default async function HomePage() {
         </div>
       </header>
 
-      <LibraryInteractivityLoader totalCount={books.length} initialBrowse={<LibraryInitialBrowse books={initialBooks} />} />
+      <LibraryInteractivityLoader totalCount={result.data.totalCount} initialBrowse={<LibraryInitialBrowse books={initialBooks} />} />
     </main>
   );
 }
