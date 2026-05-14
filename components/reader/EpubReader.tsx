@@ -1031,16 +1031,33 @@ function labelFromEpubLocation(book: any, location: any, progress: number) {
   }
 
   if (!hasGeneratedEpubLocations(book)) {
-    return "Calculating location";
+    return "Calculating progress...";
   }
 
   return `${Math.round(progress * 100)}%`;
 }
 
-function searchResultKey(cfi: string, href: string, excerpt: string) {
+function normalizedSearchText(value: string) {
+  return value.replace(/\s+/g, " ").trim().toLowerCase();
+}
+
+function searchResultKey(cfi: string) {
   const normalizedCfi = cfi.replace(/\s+/g, "");
-  if (normalizedCfi) return `cfi:${normalizedCfi}`;
-  return `text:${href.trim().toLowerCase()}::${excerpt.replace(/\s+/g, " ").trim().toLowerCase()}`;
+  return normalizedCfi ? `cfi:${normalizedCfi}` : "";
+}
+
+function nearbySearchLocationKey(book: any, cfi: string) {
+  const progress = progressFromCfi(book, cfi);
+  if (progress > 0) return `p:${Math.round(progress * 1000)}`;
+
+  const spineMatch = cfi.match(/\/(\d+)(?:[!/),])/);
+  return spineMatch ? `s:${spineMatch[1]}` : "unknown";
+}
+
+function searchContentKey(book: any, cfi: string, href: string, excerpt: string) {
+  const normalizedExcerpt = normalizedSearchText(excerpt);
+  if (!normalizedExcerpt) return "";
+  return `text:${href.trim().toLowerCase()}::${nearbySearchLocationKey(book, cfi)}::${normalizedExcerpt}`;
 }
 
 function currentReadableText(rendition: any): ReaderReadableText | null {
@@ -1123,8 +1140,10 @@ function progressFromEpubLocation(book: any, location: any, cfi: string) {
       return Math.max(0, Math.min(1, progress));
     }
   } catch {
-    // Fall through to rendition or spine index estimates while locations are still generating.
+    // Fall through only after generated locations are known to be unavailable.
   }
+
+  if (!hasGeneratedEpubLocations(book)) return 0;
 
   const renditionProgress = location?.start?.percentage;
   if (typeof renditionProgress === "number" && Number.isFinite(renditionProgress)) {
@@ -1366,6 +1385,11 @@ export function EpubReader({
               safeCall(() => rendition.reportLocation?.());
             }
           });
+          window.setTimeout(() => {
+            if (!destroyedRef.current) {
+              safeCall(() => rendition.reportLocation?.());
+            }
+          }, 160);
         })
         .catch((error: unknown) => {
           devError("page-turn:failed", error, { direction, source });
@@ -1815,9 +1839,14 @@ export function EpubReader({
           () => {
             devLog("locations.generate:done", { locations: epubLocationCount(book) });
             if (cancelled || destroyedRef.current || failed) return;
-            safeCall(() => rendition.reportLocation?.());
-            const currentLocation = typeof rendition.currentLocation === "function" ? rendition.currentLocation() : null;
-            if (currentLocation) handleRelocated(currentLocation);
+            const refreshGeneratedLocation = () => {
+              if (cancelled || destroyedRef.current || failed) return;
+              safeCall(() => rendition.reportLocation?.());
+              const currentLocation = typeof rendition.currentLocation === "function" ? rendition.currentLocation() : null;
+              if (currentLocation) handleRelocated(currentLocation);
+            };
+            window.requestAnimationFrame(refreshGeneratedLocation);
+            window.setTimeout(refreshGeneratedLocation, 120);
           },
           (error: unknown) => devError("locations.generate failed", error),
         );
@@ -1987,6 +2016,7 @@ export function EpubReader({
       const spineItems = book.spine?.spineItems ?? [];
       const results: SearchResult[] = [];
       const seenResults = new Set<string>();
+      const seenContentResults = new Set<string>();
       onSearchStatus({ state: "searching", query, searchedPages: 0, totalPages: spineItems.length, resultCount: 0 });
 
       for (const [index, item] of spineItems.entries()) {
@@ -1998,9 +2028,11 @@ export function EpubReader({
           for (const match of found) {
             if (!match.cfi) continue;
             const excerpt = resultExcerpt(match.excerpt ?? "");
-            const key = searchResultKey(match.cfi, item.href || "", excerpt);
-            if (seenResults.has(key)) continue;
-            seenResults.add(key);
+            const key = searchResultKey(match.cfi);
+            const contentKey = searchContentKey(book, match.cfi, item.href || "", excerpt);
+            if ((key && seenResults.has(key)) || (contentKey && seenContentResults.has(contentKey))) continue;
+            if (key) seenResults.add(key);
+            if (contentKey) seenContentResults.add(contentKey);
             results.push({
               id: `epub-${results.length}-${match.cfi}`,
               label: item.href || "Section",

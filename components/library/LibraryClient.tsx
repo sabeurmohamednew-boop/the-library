@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { Search } from "lucide-react";
+import { Search, X } from "lucide-react";
 import type { ReactNode } from "react";
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { trackResumeClick } from "@/lib/analytics";
@@ -159,6 +159,11 @@ export function LibraryClient({
 
   const canLoadMore = view !== "list" && visibleCount < activeResultsCount;
   const showInitialBrowse = !resultsActivated && view === "gallery" && sort === "title-asc" && !format && !category && !bookmarkedOnly && !deferredSearch.trim();
+  const hasSearch = search.trim().length > 0;
+  const hasActiveFilters = Boolean(format || category || bookmarkedOnly);
+  const hasNonDefaultControls = Boolean(hasSearch || hasActiveFilters);
+  const formatLabel = BOOK_FORMATS.find((item) => item.value === format)?.label ?? format;
+  const categoryLabel = BOOK_CATEGORIES.find((item) => item.value === category)?.label ?? category;
 
   function activateResults() {
     setResultsActivated(true);
@@ -173,6 +178,19 @@ export function LibraryClient({
 
   function resetSearchAndFilters() {
     setSearch("");
+    setFormat("");
+    setCategory("");
+    setBookmarkedOnly(false);
+    setResultsActivated(true);
+  }
+
+  function clearSearch() {
+    setSearch("");
+    setResultsActivated(true);
+    searchRef.current?.focus();
+  }
+
+  function clearFilters() {
     setFormat("");
     setCategory("");
     setBookmarkedOnly(false);
@@ -293,9 +311,14 @@ export function LibraryClient({
                 setSearch(event.target.value);
                 activateResults();
               }}
-              placeholder="Search books"
+              placeholder="Search the full library"
               aria-label="Search books"
             />
+            {hasSearch ? (
+              <button className="search-clear-button" type="button" onClick={clearSearch} aria-label="Clear search">
+                <X aria-hidden="true" />
+              </button>
+            ) : null}
           </div>
         ) : null}
 
@@ -317,6 +340,31 @@ export function LibraryClient({
           </div>
         </div>
       </section>
+
+      {(hasNonDefaultControls || canLoadMore) && resultsActivated ? (
+        <div className="active-filter-row" aria-label="Active library filters">
+          {hasSearch ? <span className="filter-pill">Search: {search.trim()}</span> : null}
+          {format ? <span className="filter-pill">Format: {formatLabel}</span> : null}
+          {category ? <span className="filter-pill">Category: {categoryLabel}</span> : null}
+          {bookmarkedOnly ? <span className="filter-pill">Bookmarked</span> : null}
+          {canLoadMore ? <span className="muted small">Scroll for more books.</span> : null}
+          {hasSearch ? (
+            <button className="button subtle compact-button" type="button" onClick={clearSearch}>
+              Clear search
+            </button>
+          ) : null}
+          {hasActiveFilters ? (
+            <button className="button subtle compact-button" type="button" onClick={clearFilters}>
+              Clear filters
+            </button>
+          ) : null}
+          {hasNonDefaultControls ? (
+            <button className="button subtle compact-button" type="button" onClick={resetSearchAndFilters}>
+              Clear all
+            </button>
+          ) : null}
+        </div>
+      ) : null}
 
       {chrome && !clientStateReady ? (
         <section className="continue-section continue-section-pending" aria-labelledby="recent-heading" aria-busy="true">
@@ -491,7 +539,7 @@ export function LibraryClient({
                 setVisibleCount((count) => count + LIBRARY_PAGE_SIZE[view]);
               }}
             >
-              Load more
+              Load 12 more books
             </button>
           </div>
         ) : null}

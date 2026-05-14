@@ -106,10 +106,10 @@ export function LibraryInteractivityLoader({ totalCount, initialBrowse }: Librar
       {totalCount > 12 ? (
         <div className="section-heading">
           <span className="muted small">
-            Showing 12 of {totalCount.toLocaleString()}
+            Showing 12 of {totalCount.toLocaleString()}. Continue below for more books.
           </span>
           <button className="button" type="button" onClick={() => void activateLibrary()} disabled={loading} aria-busy={loading}>
-            {loading ? "Loading..." : "Load more"}
+            {loading ? "Loading..." : "Load more books"}
           </button>
         </div>
       ) : null}

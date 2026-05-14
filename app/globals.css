@@ -114,6 +114,19 @@ html[data-theme="dark"] .select {
   color-scheme: dark;
 }
 
+html[data-theme="dark"] .select,
+html[data-theme="dark"] .select option {
+  background-color: var(--surface);
+  color: var(--ink);
+}
+
+html[data-theme="dark"] .select option:checked,
+html[data-theme="dark"] .select option:hover,
+html[data-theme="dark"] .select option:focus {
+  background-color: var(--surface-muted);
+  color: var(--ink);
+}
+
 * {
   box-sizing: border-box;
 }
@@ -204,6 +217,10 @@ canvas {
   margin: 0;
   font-size: 1.5rem;
   font-weight: 650;
+  font-kerning: normal;
+  letter-spacing: 0;
+  text-transform: none;
+  word-spacing: normal;
 }
 
 .library-home {
@@ -419,10 +436,20 @@ canvas {
 
 .select {
   color-scheme: light;
+  background-color: var(--surface);
+  color: var(--ink);
+  accent-color: var(--accent);
 }
 
 .select option {
-  background: var(--surface);
+  background-color: var(--surface);
+  color: var(--ink);
+}
+
+.select option:checked,
+.select option:hover,
+.select option:focus {
+  background-color: var(--surface-muted);
   color: var(--ink);
 }
 
@@ -632,6 +659,72 @@ canvas {
 
 .search-wrap .field {
   padding-left: 38px;
+}
+
+.search-wrap .field::-webkit-search-cancel-button {
+  appearance: none;
+}
+
+.search-clear-button {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+  transform: translateY(-50%);
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-soft);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.search-clear-button:hover {
+  border-color: var(--control-border);
+  background: var(--hover-bg);
+  color: var(--accent);
+}
+
+.search-clear-button svg {
+  position: static;
+  width: 16px;
+  height: 16px;
+  transform: none;
+  pointer-events: none;
+}
+
+.toolbar-search .field:has(+ .search-clear-button) {
+  padding-right: 42px;
+}
+
+.active-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+  margin: -4px 0 14px;
+}
+
+.filter-pill {
+  min-height: 28px;
+  border: 1px solid var(--control-border);
+  border-radius: 999px;
+  background: var(--control-bg);
+  color: var(--ink-muted);
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 9px;
+  font-size: 0.78rem;
+  line-height: 1.2;
+}
+
+.compact-button {
+  min-height: 28px;
+  padding: 4px 9px;
+  font-size: 0.78rem;
 }
 
 .segmented {
@@ -2164,6 +2257,10 @@ kbd {
     min-width: 0;
     overflow: hidden;
     padding: 11px;
+  }
+
+  .toolbar.library-filterbar {
+    overflow: visible;
   }
 
   .toolbar > * {

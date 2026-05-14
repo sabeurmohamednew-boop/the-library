@@ -179,6 +179,10 @@ function progressLabel(progress: number) {
   return `${Math.round(clampNumber(progress, 0, 1) * 100)}%`;
 }
 
+function isCalculatingProgressLabel(label?: string) {
+  return Boolean(label?.toLowerCase().includes("calculating"));
+}
+
 function parsePageLabel(label?: string) {
   const match = label?.match(/page\s+(\d+)\s+of\s+(\d+)/i);
   if (!match) return null;
@@ -202,6 +206,7 @@ function minutesLabel(minutes: number) {
 
 function formatReaderProgressDisplay(display: ReaderProgressDisplay, state: ReaderState, book: ReaderBookDTO, toc: TocItem[]) {
   if (display === "hidden") return "";
+  if (book.format === "EPUB" && isCalculatingProgressLabel(state.locationLabel)) return state.locationLabel ?? "Calculating progress...";
   if (display === "percentage") return progressLabel(state.progress || 0);
 
   const pageLabel = parsePageLabel(state.locationLabel);

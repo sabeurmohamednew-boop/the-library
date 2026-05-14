@@ -52,6 +52,17 @@ function parseRange(range: string | null, size: number) {
   return { start, end: Math.min(end, size - 1) };
 }
 
+function safeDecodeSlug(slug: string | undefined) {
+  const raw = slug?.trim() ?? "";
+  if (!raw) return null;
+
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return null;
+  }
+}
+
 function localFileResponse(request: Request, book: NonNullable<Awaited<ReturnType<typeof getBookBySlug>>>, localFile: LocalFile, headOnly: boolean) {
   const rangeHeader = request.headers.get("range");
   const range = parseRange(rangeHeader, localFile.size);
@@ -121,8 +132,12 @@ function r2FileResponse(request: Request, book: NonNullable<Awaited<ReturnType<t
 
 async function handleFileRequest(request: Request, context: RouteContext, headOnly = false) {
   const { slug } = await context.params;
-  const decodedSlug = decodeURIComponent(slug);
+  const decodedSlug = safeDecodeSlug(slug);
   let book;
+
+  if (!decodedSlug) {
+    return NextResponse.json({ error: "A valid book slug is required." }, { status: 400 });
+  }
 
   try {
     book = await getBookBySlug(decodedSlug);
@@ -183,25 +198,43 @@ async function handleFileRequest(request: Request, context: RouteContext, headOn
     devLog("r2-not-configured", { slug: decodedSlug, missing: r2Error });
   }
 
-  const localFile = await findLocalBookFile(book);
-  if (localFile) {
-    devLog("local-file", {
-      slug: decodedSlug,
-      range,
-      headOnly,
-      path: localFile.path,
-      size: localFile.size,
-    });
-    return localFileResponse(request, book, localFile, headOnly);
+  try {
+    const localFile = await findLocalBookFile(book);
+    if (localFile) {
+      devLog("local-file", {
+        slug: decodedSlug,
+        range,
+        headOnly,
+        path: localFile.path,
+        size: localFile.size,
+      });
+      return localFileResponse(request, book, localFile, headOnly);
+    }
+  } catch (error) {
+    const failure = runtimeFailure("book-file.local", error);
+    logRuntimeFailure(failure, { slug: decodedSlug, range, headOnly });
+    return NextResponse.json({ error: failure.userMessage }, { status: 503 });
   }
 
   return NextResponse.json({ error: "Book file is unavailable." }, { status: 404 });
 }
 
 export async function GET(request: Request, context: RouteContext) {
-  return handleFileRequest(request, context);
+  try {
+    return await handleFileRequest(request, context);
+  } catch (error) {
+    const failure = runtimeFailure("book-file.get", error);
+    logRuntimeFailure(failure);
+    return NextResponse.json({ error: failure.userMessage }, { status: 503 });
+  }
 }
 
 export async function HEAD(request: Request, context: RouteContext) {
-  return handleFileRequest(request, context, true);
+  try {
+    return await handleFileRequest(request, context, true);
+  } catch (error) {
+    const failure = runtimeFailure("book-file.head", error);
+    logRuntimeFailure(failure);
+    return NextResponse.json({ error: failure.userMessage }, { status: 503 });
+  }
 }
