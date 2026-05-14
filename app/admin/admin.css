@@ -1,0 +1,106 @@
+/* Route-specific styles split from app/globals.css. */
+
+.admin-shell {
+  width: min(880px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 34px 0 56px;
+}.admin-shell.wide {
+  width: min(1180px, calc(100% - 32px));
+}.admin-nav,
+.admin-actions,
+.admin-filterbar,
+.admin-row-actions,
+.inline-action {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}.admin-nav {
+  justify-content: flex-end;
+}.admin-form {
+  display: grid;
+  gap: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 18px;
+}.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}.form-grid .span-2 {
+  grid-column: 1 / -1;
+}.field-error {
+  color: var(--danger);
+  font-size: 0.82rem;
+  font-weight: 520;
+}.notice {
+  border-left: 4px solid var(--accent);
+  background: rgb(var(--primary-rgb) / 0.08);
+  padding: 12px 14px;
+  color: var(--ink);
+}.action-row.compact {
+  margin-top: 10px;
+}.admin-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}.admin-stat {
+  display: grid;
+  gap: 4px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 14px;
+  box-shadow: 0 1px 3px rgb(var(--shadow-rgb) / 0.06);
+}.admin-stat span {
+  color: var(--ink-muted);
+  font-size: 0.84rem;
+}.admin-stat strong {
+  font-size: 1.4rem;
+  line-height: 1.2;
+}.admin-filterbar {
+  margin-bottom: 16px;
+}.admin-filterbar .field {
+  flex: 1 1 260px;
+}.admin-filterbar .select {
+  width: auto;
+  min-width: 150px;
+}.admin-book-list {
+  display: grid;
+  gap: 10px;
+}.admin-book-row {
+  display: grid;
+  grid-template-columns: 54px minmax(180px, 1fr) minmax(220px, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 10px;
+  box-shadow: 0 1px 3px rgb(var(--shadow-rgb) / 0.06);
+}.admin-thumb {
+  width: 54px;
+  border-radius: 6px;
+}.admin-book-main,
+.admin-book-meta {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}.admin-book-meta {
+  color: var(--ink-muted);
+  font-size: 0.82rem;
+}.admin-edit-layout {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}@media (max-width: 860px) {.form-grid {
+    grid-template-columns: 1fr;
+  }.admin-nav {
+    justify-content: flex-start;
+  }.admin-book-row,
+.admin-edit-layout {
+    grid-template-columns: 1fr;
+  }.admin-thumb {
+    width: 86px;
+  }}
