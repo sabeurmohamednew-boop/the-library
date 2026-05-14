@@ -1533,19 +1533,15 @@ kbd {
   height: 20px;
 }
 
-.loading-search {
-  width: min(100%, 520px);
-  height: 54px;
-}
-
-.loading-filterbar .toolbar-filters {
-  align-items: center;
-}
-
 .loading-browse-copy {
   width: min(64vw, 260px);
   height: 14px;
   margin-top: 6px;
+}
+
+.loading-browse-action {
+  width: 206px;
+  height: 40px;
 }
 
 .detail-heading-loading {
