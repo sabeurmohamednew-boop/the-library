@@ -667,6 +667,9 @@
   margin: 0 auto;
   overflow: hidden;
   filter: brightness(var(--reader-brightness));
+}.epub-stage-loading {
+  opacity: 0;
+  pointer-events: none;
 }.page-animation-none .pdf-page-inner,
 .page-animation-none .epub-stage iframe {
   transition: none;

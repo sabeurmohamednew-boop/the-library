@@ -420,6 +420,12 @@ function sleep(ms: number) {
   return new Promise<void>((resolve) => window.setTimeout(resolve, ms));
 }
 
+function nextAnimationFrame() {
+  return new Promise<void>((resolve) => {
+    window.requestAnimationFrame(() => resolve());
+  });
+}
+
 type ElementDiagnostics = {
   connected: boolean;
   display: string;
@@ -489,6 +495,21 @@ function hasUsableLayout(diagnostics: ElementDiagnostics) {
   return diagnostics.connected && diagnostics.display !== "none" && diagnostics.visibility !== "hidden" && width >= 120 && height >= 120;
 }
 
+function layoutSize(diagnostics: ElementDiagnostics) {
+  return {
+    width: Math.max(diagnostics.rectWidth, diagnostics.clientWidth, diagnostics.offsetWidth),
+    height: Math.max(diagnostics.rectHeight, diagnostics.clientHeight, diagnostics.offsetHeight),
+  };
+}
+
+function hasStableLayoutSize(current: ElementDiagnostics, previous: ElementDiagnostics | null) {
+  if (!previous) return false;
+
+  const currentSize = layoutSize(current);
+  const previousSize = layoutSize(previous);
+  return Math.abs(currentSize.width - previousSize.width) <= 1 && Math.abs(currentSize.height - previousSize.height) <= 1;
+}
+
 async function waitForElementLayout(element: HTMLElement | null, timeoutMs = EPUB_LAYOUT_TIMEOUT_MS) {
   const startedAt = Date.now();
   let diagnostics = measureElement(element);
@@ -507,6 +528,73 @@ async function waitForElementLayout(element: HTMLElement | null, timeoutMs = EPU
   const error = new Error("EPUB reader stage never received usable layout.");
   (error as Error & { diagnostics?: ElementDiagnostics }).diagnostics = diagnostics;
   devError("stage:layout-timeout", error, diagnostics);
+  throw error;
+}
+
+async function waitForStableElementLayout(element: HTMLElement | null, timeoutMs = EPUB_LAYOUT_TIMEOUT_MS, stableFrames = 2) {
+  if (!element) {
+    const error = new Error("EPUB reader stage is missing.");
+    devError("stage:stable-layout-missing", error);
+    throw error;
+  }
+
+  const startedAt = Date.now();
+  let diagnostics = measureElement(element);
+  let previousDiagnostics: ElementDiagnostics | null = null;
+  let matchingFrames = 0;
+  let resizeGeneration = 0;
+  let lastObservedGeneration = 0;
+  devLog("stage:stable-layout-wait:start", diagnostics);
+
+  const observer =
+    typeof ResizeObserver === "function"
+      ? new ResizeObserver(() => {
+          resizeGeneration += 1;
+          matchingFrames = 0;
+        })
+      : null;
+
+  observer?.observe(element);
+
+  try {
+    while (Date.now() - startedAt < timeoutMs) {
+      await nextAnimationFrame();
+      diagnostics = measureElement(element);
+
+      if (!hasUsableLayout(diagnostics)) {
+        previousDiagnostics = diagnostics;
+        matchingFrames = 0;
+        lastObservedGeneration = resizeGeneration;
+        continue;
+      }
+
+      if (resizeGeneration !== lastObservedGeneration) {
+        previousDiagnostics = diagnostics;
+        matchingFrames = 0;
+        lastObservedGeneration = resizeGeneration;
+        continue;
+      }
+
+      if (hasStableLayoutSize(diagnostics, previousDiagnostics)) {
+        matchingFrames += 1;
+      } else {
+        matchingFrames = 0;
+      }
+
+      previousDiagnostics = diagnostics;
+
+      if (matchingFrames >= stableFrames) {
+        devLog("stage:stable-layout-ready", { elapsedMs: Date.now() - startedAt, ...diagnostics });
+        return diagnostics;
+      }
+    }
+  } finally {
+    observer?.disconnect();
+  }
+
+  const error = new Error("EPUB reader stage dimensions did not stabilize.");
+  (error as Error & { diagnostics?: ElementDiagnostics }).diagnostics = diagnostics;
+  devError("stage:stable-layout-timeout", error, diagnostics);
   throw error;
 }
 
@@ -781,6 +869,18 @@ function resizeRenditionToElement(rendition: any, element: HTMLElement | null) {
   const { width, height } = getRenditionSize(element);
   if (width <= 0 || height <= 0) return;
   rendition.resize(width, height);
+}
+
+async function forceRenditionReflow(rendition: any, element: HTMLElement | null, settings: EpubSettings) {
+  await waitForStableElementLayout(element, EPUB_LAYOUT_TIMEOUT_MS);
+
+  for (let index = 0; index < 2; index += 1) {
+    await nextAnimationFrame();
+    safeCall(() => {
+      resizeRenditionToElement(rendition, element);
+      applyContentStyles(rendition, settings);
+    });
+  }
 }
 
 function applySettings(rendition: any, settings: EpubSettings, options: { resize?: boolean; container?: HTMLElement | null } = {}) {
@@ -1307,13 +1407,13 @@ export function EpubReader({
 
     async function waitForInitialStageLayout() {
       try {
-        return await waitForElementLayout(element, EPUB_LAYOUT_TIMEOUT_MS);
+        return await waitForStableElementLayout(element, EPUB_LAYOUT_TIMEOUT_MS);
       } catch (firstLayoutError) {
         if (cancelled || destroyedRef.current || failed) throw firstLayoutError;
         devError("stage:initial-layout-first-attempt-failed", firstLayoutError, measureElement(element));
         reportStatus({ phase: "retrying", message: "Retrying reader layout" });
         await sleep(180);
-        return waitForElementLayout(element, EPUB_LAYOUT_TIMEOUT_MS);
+        return waitForStableElementLayout(element, EPUB_LAYOUT_TIMEOUT_MS);
       }
     }
 
@@ -1566,7 +1666,7 @@ export function EpubReader({
             phase: attempt === 1 ? "rendering" : "retrying",
             message: targetStatusMessage(target, attempt),
           });
-          await waitForElementLayout(element, EPUB_LAYOUT_TIMEOUT_MS);
+          await waitForStableElementLayout(element, EPUB_LAYOUT_TIMEOUT_MS);
           if (cancelled || destroyedRef.current || failed) return null;
 
           safeCall(() => resizeRenditionToElement(rendition, element));
@@ -1583,9 +1683,17 @@ export function EpubReader({
           if (cancelled || destroyedRef.current || failed) return null;
 
           devLog("rendition.display:end", { attempt, mode: target.mode, target: target.value ?? "spine-default", diagnostics: collectRenditionDiagnostics(rendition, element) });
+          await forceRenditionReflow(rendition, element, settingsRef.current);
+          if (cancelled || destroyedRef.current || failed) return null;
+
           const diagnostics = await waitForVisibleRenditionContent(rendition, element, EPUB_CONTENT_TIMEOUT_MS);
           if (cancelled || destroyedRef.current || failed) return null;
 
+          await nextAnimationFrame();
+          safeCall(() => {
+            resizeRenditionToElement(rendition, element);
+            applyContentStyles(rendition, settingsRef.current);
+          });
           safeCall(() => rendition.reportLocation?.());
           const currentLocation = typeof rendition.currentLocation === "function" ? rendition.currentLocation() : null;
           if (currentLocation) handleRelocated(currentLocation);
@@ -1895,7 +2003,7 @@ export function EpubReader({
       ) : null}
       <div
         ref={containerRef}
-        className="epub-stage"
+        className={`epub-stage${ready ? "" : " epub-stage-loading"}`}
         style={{
           width: state.fitWidth ? "100%" : `${Math.max(420, Math.min(1180, state.zoom * 8))}px`,
           maxWidth: "100%",
