@@ -1,6 +1,5 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import Link from "next/link";
 import { Search, X } from "lucide-react";
 import type { ReactNode } from "react";
@@ -13,16 +12,9 @@ import { normalizeSearch } from "@/lib/text";
 import type { ReaderState } from "@/lib/types";
 import { AuthorLinks } from "@/components/library/AuthorLinks";
 import { BookCover } from "@/components/library/BookCover";
+import { InteractiveLibraryResults } from "@/components/library/InteractiveLibraryResults";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import type { IndexedLibraryBook, ListMode, SortMode, ViewMode } from "@/components/library/libraryViewTypes";
-
-const InteractiveLibraryResults = dynamic(
-  () => import("@/components/library/InteractiveLibraryResults").then((mod) => mod.InteractiveLibraryResults),
-  {
-    ssr: false,
-    loading: () => <div className="gallery-grid skeleton-grid" aria-hidden="true" />,
-  },
-);
 
 type LibraryClientProps = {
   books: IndexedLibraryBook[];

@@ -351,3 +351,48 @@ On mount, `LibraryClient` immediately ran its reset effect for `[view, sort, for
 ### Result
 
 Passed. `Load more` works on the first click, does not reload the page, and still works after searching, filtering, view switching, and on mobile. No console errors or failed network requests were observed in the focused library verification.
+
+## Load More First-Click Scroll Reset Fix
+
+Date: 2026-05-14  
+Target tested: local app at `http://localhost:3000/` using `npm run dev`  
+Browser method: Playwright Chromium, desktop viewport `1280x900`
+
+### Root Cause
+
+The remaining first-click bug was not a form submit or full document reload. The initial `Load more books` control already had `type="button"`, the search form called `preventDefault()`, the URL stayed unchanged, and `beforeunload` did not fire.
+
+The first click replaced `LibraryInteractivityLoader`'s server-rendered browse section with the dynamically imported `LibraryClient`. `LibraryClient` then had a second dynamic boundary for `InteractiveLibraryResults`, so the first activation committed in two phases. The old clicked button disappeared during that replacement and the viewport ended up back at the top even though the books loaded.
+
+### Files Changed
+
+- `components/library/LibraryInteractivityLoader.tsx`
+- `components/library/LibraryClient.tsx`
+- `VERIFY_FIXES_REPORT.md`
+
+### Fix Applied
+
+`LibraryInteractivityLoader` now snapshots `window.scrollY` before the first interactive activation and restores it in a layout effect after the interactive client mounts.
+
+`LibraryClient` now imports `InteractiveLibraryResults` directly. Since `LibraryClient` is already loaded on demand by `LibraryInteractivityLoader`, the extra inner dynamic import was unnecessary and caused a delayed result-grid replacement after the first activation.
+
+### Verification Steps
+
+- Reproduced the remaining bug before this fix: first click changed `12 -> 24` books, URL stayed `http://localhost:3000/`, `beforeunload` stayed `0`, but scroll changed from `1339` to `0`.
+- Verified first click after the fix: `12 -> 24` books, URL unchanged, `beforeunload` stayed `0`, scroll stayed `1339`.
+- Verified second click after the fix: `24 -> 36` books, URL unchanged, scroll stayed stable.
+- Verified search mode load more for `the`: `12 -> 24` books, scroll delta `0`, URL unchanged.
+- Verified format filter load more for `EPUB`: `12 -> 24` books, scroll delta `0`, URL unchanged.
+- Verified category filter load more for `SELF_IMPROVEMENT`: `12 -> 17` books, scroll delta `0`, URL unchanged.
+- Verified Cover view switch: all 41 covers rendered; no Load More button is expected because cover page size is 48.
+- Verified List view switch: titles rendered; no Load More button is expected for list view.
+- Checked for failed Playwright network requests and browser console errors during the focused passes.
+
+### Commands Run
+
+- `npm run lint`
+- `npm run build`
+
+### Result
+
+Passed. The first `Load more books` click now loads more books without reloading the document, changing the URL, or resetting scroll to the top. The second click and search/filter/view-mode behavior still work.
