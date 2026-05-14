@@ -13,7 +13,7 @@ type BookCardProps = {
   imagePriority?: boolean;
 };
 
-export function BookCard({ book, started, imagePriority = false }: BookCardProps) {
+export function BookCard({ book, imagePriority = false }: BookCardProps) {
   const bookTitle = displayBookTitle(book.title);
   const title = truncateText(bookTitle, TRUNCATION_LIMITS.title);
   const description = truncateText(displayBookDescription(book.description), TRUNCATION_LIMITS.description);
@@ -22,7 +22,6 @@ export function BookCard({ book, started, imagePriority = false }: BookCardProps
     <article className="book-card">
       <Link className="cover-link" href={`/books/${book.slug}`} aria-label={`Open details for ${bookTitle}`} prefetch={false}>
         <span className="format-badge">{book.format}</span>
-        {started ? <span className="resume-badge">Resume</span> : null}
         <BookCover
           book={{ slug: book.slug, title: bookTitle, format: book.format, coverBlobPath: book.coverBlobPath, updatedAt: book.updatedAt }}
           priority={imagePriority}
