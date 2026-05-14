@@ -198,7 +198,6 @@ export function safeGetAllLibraryBooks() {
 }
 
 export async function getLibraryHomeBooks(take = 12) {
-  noStore();
   const [totalCount, books] = await Promise.all([
     prisma.book.count(),
     prisma.book.findMany({
