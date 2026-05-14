@@ -1041,6 +1041,48 @@ function normalizedSearchText(value: string) {
   return value.replace(/\s+/g, " ").trim().toLowerCase();
 }
 
+function normalizedSearchWords(value: string) {
+  return normalizedSearchText(value)
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .split(" ")
+    .filter((word) => word.length > 1);
+}
+
+function hasSharedWordWindow(firstWords: string[], secondWords: string[], windowSize: number) {
+  if (firstWords.length < windowSize || secondWords.length < windowSize) return false;
+
+  const firstWindows = new Set<string>();
+  for (let index = 0; index <= firstWords.length - windowSize; index += 1) {
+    firstWindows.add(firstWords.slice(index, index + windowSize).join(" "));
+  }
+
+  for (let index = 0; index <= secondWords.length - windowSize; index += 1) {
+    if (firstWindows.has(secondWords.slice(index, index + windowSize).join(" "))) return true;
+  }
+
+  return false;
+}
+
+function searchExcerptsOverlap(first: string, second: string) {
+  const firstWords = normalizedSearchWords(first);
+  const secondWords = normalizedSearchWords(second);
+  if (firstWords.length < 8 || secondWords.length < 8) return false;
+
+  const firstText = firstWords.join(" ");
+  const secondText = secondWords.join(" ");
+  if (firstText.includes(secondText) || secondText.includes(firstText)) return true;
+  if (hasSharedWordWindow(firstWords, secondWords, 7)) return true;
+
+  const firstSet = new Set(firstWords);
+  const secondSet = new Set(secondWords);
+  let shared = 0;
+  firstSet.forEach((word) => {
+    if (secondSet.has(word)) shared += 1;
+  });
+
+  return shared / Math.min(firstSet.size, secondSet.size) >= 0.72;
+}
+
 function searchResultKey(cfi: string) {
   const normalizedCfi = cfi.replace(/\s+/g, "");
   return normalizedCfi ? `cfi:${normalizedCfi}` : "";
@@ -1058,6 +1100,12 @@ function searchContentKey(book: any, cfi: string, href: string, excerpt: string)
   const normalizedExcerpt = normalizedSearchText(excerpt);
   if (!normalizedExcerpt) return "";
   return `text:${href.trim().toLowerCase()}::${nearbySearchLocationKey(book, cfi)}::${normalizedExcerpt}`;
+}
+
+function overlappingSearchResultKey(href: string, excerpt: string, acceptedExcerptsByHref: Map<string, string[]>) {
+  const normalizedHref = href.trim().toLowerCase();
+  const acceptedExcerpts = acceptedExcerptsByHref.get(normalizedHref) ?? [];
+  return acceptedExcerpts.some((acceptedExcerpt) => searchExcerptsOverlap(acceptedExcerpt, excerpt)) ? normalizedHref : "";
 }
 
 function currentReadableText(rendition: any): ReaderReadableText | null {
@@ -1411,6 +1459,7 @@ export function EpubReader({
 
     let cancelled = false;
     let fetchTimeout: number | null = null;
+    let loadStartTimer: number | null = null;
     let fetchTimedOut = false;
     let failed = false;
     let loadSettled = false;
@@ -1866,13 +1915,21 @@ export function EpubReader({
     }
 
     let removeListeners: (() => void) | undefined;
-    void loadBook().then((cleanup) => {
-      removeListeners = cleanup;
-    });
+    loadStartTimer = window.setTimeout(() => {
+      loadStartTimer = null;
+      if (cancelled || destroyedRef.current) return;
+      void loadBook().then((cleanup) => {
+        removeListeners = cleanup;
+      });
+    }, 0);
 
     return () => {
       cancelled = true;
       destroyedRef.current = true;
+      if (loadStartTimer !== null) {
+        window.clearTimeout(loadStartTimer);
+        loadStartTimer = null;
+      }
       if (fetchTimeout !== null) {
         window.clearTimeout(fetchTimeout);
       }
@@ -2017,6 +2074,7 @@ export function EpubReader({
       const results: SearchResult[] = [];
       const seenResults = new Set<string>();
       const seenContentResults = new Set<string>();
+      const acceptedExcerptsByHref = new Map<string, string[]>();
       onSearchStatus({ state: "searching", query, searchedPages: 0, totalPages: spineItems.length, resultCount: 0 });
 
       for (const [index, item] of spineItems.entries()) {
@@ -2030,9 +2088,16 @@ export function EpubReader({
             const excerpt = resultExcerpt(match.excerpt ?? "");
             const key = searchResultKey(match.cfi);
             const contentKey = searchContentKey(book, match.cfi, item.href || "", excerpt);
-            if ((key && seenResults.has(key)) || (contentKey && seenContentResults.has(contentKey))) continue;
+            const overlapKey = overlappingSearchResultKey(item.href || "", excerpt, acceptedExcerptsByHref);
+            if ((key && seenResults.has(key)) || (contentKey && seenContentResults.has(contentKey)) || overlapKey) continue;
             if (key) seenResults.add(key);
             if (contentKey) seenContentResults.add(contentKey);
+            const hrefKey = (item.href || "").trim().toLowerCase();
+            if (hrefKey && excerpt) {
+              const acceptedExcerpts = acceptedExcerptsByHref.get(hrefKey) ?? [];
+              acceptedExcerpts.push(excerpt);
+              acceptedExcerptsByHref.set(hrefKey, acceptedExcerpts);
+            }
             results.push({
               id: `epub-${results.length}-${match.cfi}`,
               label: item.href || "Section",
