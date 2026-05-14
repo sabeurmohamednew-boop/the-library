@@ -1,13 +1,13 @@
 :root {
   --bg: #f7f7f7;
   --text: #1f211f;
-  --muted: #676b65;
+  --muted: #5e635c;
   --card: #ffffff;
   --border: #dedfdb;
   --primary: #2f6f60;
   --bg-rgb: 247 247 247;
   --text-rgb: 31 33 31;
-  --muted-rgb: 103 107 101;
+  --muted-rgb: 94 99 92;
   --card-rgb: 255 255 255;
   --border-rgb: 222 223 219;
   --primary-rgb: 47 111 96;
@@ -27,7 +27,7 @@
   --focus: #1f7a68;
   --focus-ring: rgb(31 122 104 / 0.35);
   --selection-bg: rgb(var(--primary-rgb) / 0.22);
-  --subtitle: rgb(var(--muted-rgb) / 0.9);
+  --subtitle: var(--muted);
   --control-border: rgb(var(--shadow-rgb) / 0.08);
   --control-bg: rgb(var(--card-rgb) / 0.72);
   --control-bg-strong: rgb(var(--card-rgb) / 0.92);
@@ -45,15 +45,7 @@
   --progress-bg: rgb(var(--shadow-rgb) / 0.08);
   --overlay-bg: rgb(31 33 31 / 0.72);
   --overlay-text: #ffffff;
-  --reader-skeleton-base: #e7e8e4;
-  --reader-skeleton-highlight: #f8f9f5;
-  --reader-bg: #f6f6f5;
-  --reader-viewer-bg: var(--bg);
-  --reader-topbar-bg: rgb(var(--card-rgb) / 0.94);
-  --reader-panel-bg: var(--surface);
-  --reader-loading-bg: rgb(var(--card-rgb) / 0.96);
-  --pdf-page-bg: #ffffff;
-  --pdf-page-filter-bg: transparent;
+  --skeleton-base: #e7e8e4;
   --skeleton-bg: linear-gradient(90deg, #eeeeec, #fafafa, #eeeeec);
   --shadow: 0 12px 32px rgb(var(--shadow-rgb) / 0.08);
   --shadow-soft: 0 3px 12px rgb(var(--shadow-rgb) / 0.055);
@@ -110,15 +102,7 @@ html[data-theme="dark"] {
   --progress-bg: rgb(var(--text-rgb) / 0.14);
   --overlay-bg: rgb(9 12 10 / 0.78);
   --overlay-text: #eef1ea;
-  --reader-skeleton-base: #203026;
-  --reader-skeleton-highlight: #2d4036;
-  --reader-bg: #101714;
-  --reader-viewer-bg: #0d1310;
-  --reader-topbar-bg: rgb(var(--card-rgb) / 0.94);
-  --reader-panel-bg: var(--surface);
-  --reader-loading-bg: rgb(var(--card-rgb) / 0.96);
-  --pdf-page-bg: #fbfaf5;
-  --pdf-page-filter-bg: rgb(17 20 16 / 0.12);
+  --skeleton-base: #203026;
   --skeleton-bg: linear-gradient(90deg, #1a2520, #273831, #1a2520);
   --shadow: 0 12px 32px rgb(var(--shadow-rgb) / 0.34);
   --shadow-soft: 0 4px 16px rgb(var(--shadow-rgb) / 0.28);
@@ -1449,7 +1433,7 @@ kbd {
 
 .skeleton {
   border-radius: var(--radius);
-  background: var(--reader-skeleton-base);
+  background: var(--skeleton-base);
 }
 
 .book-card-skeleton {

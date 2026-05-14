@@ -8,6 +8,7 @@ type BookCoverProps = {
   book: BookCoverDTO;
   className?: string;
   priority?: boolean;
+  fetchPriority?: "high" | "low" | "auto";
   sizes?: string;
 };
 
@@ -34,7 +35,13 @@ export function coverSrcFor(book: BookCoverProps["book"]) {
   };
 }
 
-export function BookCover({ book, className, priority = false, sizes = "(max-width: 560px) 108px, (max-width: 860px) 33vw, 214px" }: BookCoverProps) {
+export function BookCover({
+  book,
+  className,
+  priority = false,
+  fetchPriority,
+  sizes = "(max-width: 560px) 108px, (max-width: 860px) 33vw, 214px",
+}: BookCoverProps) {
   const { src: coverSrc } = coverSrcFor(book);
   const bookTitle = displayBookTitle(book.title);
   const coverClassName = ["book-cover-image", className].filter(Boolean).join(" ");
@@ -46,6 +53,7 @@ export function BookCover({ book, className, priority = false, sizes = "(max-wid
       fill
       sizes={sizes}
       priority={priority}
+      fetchPriority={fetchPriority}
       className={coverClassName}
     />
   );

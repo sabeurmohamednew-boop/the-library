@@ -1,18 +1,19 @@
 "use client";
 
-import dynamic from "next/dynamic";
-import type { ReactNode } from "react";
+import type { ComponentType, ReactNode } from "react";
 import { useState } from "react";
 import type { IndexedLibraryBook } from "@/components/library/libraryViewTypes";
-
-const InteractiveLibrary = dynamic(() => import("@/components/library/LibraryClient").then((mod) => mod.LibraryClient), {
-  ssr: false,
-  loading: () => <div className="gallery-grid skeleton-grid" aria-hidden="true" />,
-});
 
 type LibraryInteractivityLoaderProps = {
   totalCount: number;
   initialBrowse: ReactNode;
+};
+
+type InteractiveLibraryProps = {
+  books: IndexedLibraryBook[];
+  chrome?: boolean;
+  initialResultsActivated?: boolean;
+  initialVisibleCount?: number;
 };
 
 type LibraryBooksResponse = {
@@ -21,6 +22,7 @@ type LibraryBooksResponse = {
 
 export function LibraryInteractivityLoader({ totalCount, initialBrowse }: LibraryInteractivityLoaderProps) {
   const [books, setBooks] = useState<IndexedLibraryBook[] | null>(null);
+  const [InteractiveLibrary, setInteractiveLibrary] = useState<ComponentType<InteractiveLibraryProps> | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -31,14 +33,18 @@ export function LibraryInteractivityLoader({ totalCount, initialBrowse }: Librar
     setError("");
 
     try {
-      const response = await fetch("/api/library/books", {
-        headers: { Accept: "application/json" },
-      });
+      const [response, module] = await Promise.all([
+        fetch("/api/library/books", {
+          headers: { Accept: "application/json" },
+        }),
+        import("@/components/library/LibraryClient"),
+      ]);
 
       if (!response.ok) throw new Error("Library data could not be loaded.");
 
       const payload = (await response.json()) as LibraryBooksResponse;
       setBooks(payload.books);
+      setInteractiveLibrary(() => module.LibraryClient);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Library data could not be loaded.");
     } finally {
@@ -46,7 +52,7 @@ export function LibraryInteractivityLoader({ totalCount, initialBrowse }: Librar
     }
   }
 
-  if (books) {
+  if (books && InteractiveLibrary) {
     return (
       <InteractiveLibrary
         books={books}

@@ -11,9 +11,10 @@ type BookCardProps = {
   book: LibraryBookDTO;
   started?: boolean;
   imagePriority?: boolean;
+  imageFetchPriority?: "high" | "low" | "auto";
 };
 
-export function BookCard({ book, imagePriority = false }: BookCardProps) {
+export function BookCard({ book, imagePriority = false, imageFetchPriority }: BookCardProps) {
   const bookTitle = displayBookTitle(book.title);
   const title = truncateText(bookTitle, TRUNCATION_LIMITS.title);
   const description = truncateText(displayBookDescription(book.description), TRUNCATION_LIMITS.description);
@@ -25,6 +26,7 @@ export function BookCard({ book, imagePriority = false }: BookCardProps) {
         <BookCover
           book={{ slug: book.slug, title: bookTitle, format: book.format, coverBlobPath: book.coverBlobPath, updatedAt: book.updatedAt }}
           priority={imagePriority}
+          fetchPriority={imageFetchPriority}
           sizes="(max-width: 560px) 108px, (max-width: 860px) 108px, (max-width: 1200px) 22vw, 214px"
         />
       </Link>
@@ -37,7 +39,7 @@ export function BookCard({ book, imagePriority = false }: BookCardProps) {
           {description.text}{" "}
           {description.truncated ? (
             <Link href={`/books/${book.slug}`} aria-label={`Read more about ${bookTitle}`} prefetch={false}>
-              More
+              More <span className="sr-only">about {bookTitle}</span>
             </Link>
           ) : null}
         </p>
