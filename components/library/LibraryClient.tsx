@@ -346,7 +346,6 @@ export function LibraryClient({
           {format ? <span className="filter-pill">Format: {formatLabel}</span> : null}
           {category ? <span className="filter-pill">Category: {categoryLabel}</span> : null}
           {bookmarkedOnly ? <span className="filter-pill">Bookmarked</span> : null}
-          {canLoadMore ? <span className="muted small">Scroll for more books.</span> : null}
           {hasSearch ? (
             <button className="button subtle compact-button" type="button" onClick={clearSearch}>
               Clear search

@@ -249,8 +249,8 @@ canvas {
   display: grid;
   gap: 16px;
   max-width: 1240px;
-  margin: 0 auto 18px;
-  min-height: 108px;
+  margin: 0 auto 14px;
+  min-height: 88px;
 }
 
 .library-header-main {
@@ -507,10 +507,10 @@ canvas {
 }
 
 .library-filterbar {
-  grid-template-columns: minmax(0, 1fr) minmax(220px, 360px) auto;
-  gap: 10px;
+  grid-template-columns: max-content minmax(260px, 1fr) auto;
+  gap: 8px;
   align-items: center;
-  margin-bottom: 18px;
+  margin-bottom: 14px;
   min-height: 40px;
   padding: 10px;
   border: 1px solid rgb(var(--border-rgb) / 0.74);
@@ -521,12 +521,16 @@ canvas {
 }
 
 .library-filterbar .toolbar-filters {
-  gap: 8px;
+  gap: 7px;
   justify-content: flex-start;
 }
 
 .library-filterbar .toolbar-views {
   justify-content: flex-end;
+}
+
+.library-filterbar .toolbar-search {
+  width: 100%;
 }
 
 .library-filterbar .select,
@@ -651,9 +655,9 @@ canvas {
 }
 
 .library-activation-search .button {
-  min-height: 54px;
-  min-width: 142px;
-  padding-inline: 20px;
+  min-height: 50px;
+  min-width: 136px;
+  padding-inline: 18px;
   white-space: nowrap;
 }
 
@@ -801,7 +805,7 @@ canvas {
   flex-wrap: wrap;
   align-items: center;
   gap: 7px;
-  margin: -4px 0 14px;
+  margin: -2px 0 12px;
 }
 
 .filter-pill {
@@ -847,6 +851,20 @@ canvas {
 
 .chip input {
   accent-color: var(--accent);
+}
+
+@media (min-width: 861px) and (max-width: 1240px) {
+  .library-filterbar {
+    grid-template-columns: minmax(0, 1fr) minmax(220px, 300px) auto;
+  }
+
+  .library-filterbar .toolbar-filters {
+    min-width: 0;
+  }
+
+  .library-filterbar .select {
+    width: 164px;
+  }
 }
 
 .section-heading {
