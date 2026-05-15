@@ -150,7 +150,7 @@ export function InteractiveLibraryResults({
               <span className="title-list-title">{bookTitle}</span>
               <span className="title-list-meta" aria-label={`${book.format}, ${book.pageCount.toLocaleString()} pages`}>
                 <span className="title-list-format">{book.format}</span>
-                <span>{book.pageCount.toLocaleString()} pages</span>
+                <span className="title-list-pages">{book.pageCount.toLocaleString()} pages</span>
               </span>
             </Link>
           );

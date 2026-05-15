@@ -1168,6 +1168,82 @@ canvas {
   line-height: 1.25;
 }
 
+.title-list-pages {
+  display: inline-block;
+  min-width: 6.8ch;
+  color: rgb(var(--muted-rgb) / 0.82);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (min-width: 861px) {
+  .title-list-item {
+    position: relative;
+    grid-template-columns: minmax(0, 1fr) minmax(164px, auto);
+    gap: 22px;
+    min-height: 54px;
+    padding: 10px 14px 10px 16px;
+    border-bottom-color: rgb(var(--shadow-rgb) / 0.07);
+    transition:
+      background 170ms ease,
+      border-color 170ms ease,
+      box-shadow 170ms ease,
+      color 170ms ease,
+      transform 170ms ease;
+  }
+
+  .title-list-item::before {
+    content: "";
+    position: absolute;
+    inset: 6px auto 6px 0;
+    width: 3px;
+    border-radius: 0 999px 999px 0;
+    background: var(--accent);
+    opacity: 0;
+    transition: opacity 170ms ease;
+  }
+
+  .title-list-item:hover,
+  .title-list-item:focus-visible {
+    background: linear-gradient(90deg, rgb(var(--primary-rgb) / 0.085), rgb(var(--card-rgb) / 0.92));
+    box-shadow: inset 0 1px 0 rgb(var(--card-rgb) / 0.58);
+    transform: translateX(2px);
+  }
+
+  .title-list-item:hover::before,
+  .title-list-item:focus-visible::before {
+    opacity: 1;
+  }
+
+  .title-list-title {
+    display: -webkit-box;
+    overflow: hidden;
+    font-size: 0.98rem;
+    font-weight: 660;
+    line-height: 1.32;
+    text-overflow: clip;
+    white-space: normal;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .title-list-meta {
+    gap: 10px;
+    min-width: 164px;
+    color: rgb(var(--muted-rgb) / 0.78);
+    font-size: 0.77rem;
+  }
+
+  .title-list-format {
+    min-width: 46px;
+    border-color: rgb(var(--primary-rgb) / 0.14);
+    background: rgb(var(--primary-rgb) / 0.075);
+    color: var(--accent);
+    padding: 2px 7px;
+    text-align: center;
+    letter-spacing: 0.015em;
+  }
+}
+
 .list-item {
   display: grid;
   grid-template-columns: 1fr auto;
@@ -1194,6 +1270,33 @@ canvas {
   font-weight: 620;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+@media (min-width: 861px) {
+  .list-item {
+    position: relative;
+    min-height: 54px;
+    padding: 0 16px;
+    border-bottom-color: rgb(var(--shadow-rgb) / 0.07);
+    transition:
+      background 170ms ease,
+      border-color 170ms ease,
+      box-shadow 170ms ease,
+      color 170ms ease,
+      transform 170ms ease;
+  }
+
+  .list-item:hover,
+  .list-item:focus-visible {
+    background: linear-gradient(90deg, rgb(var(--primary-rgb) / 0.085), rgb(var(--card-rgb) / 0.92));
+    box-shadow: inset 0 1px 0 rgb(var(--card-rgb) / 0.58);
+    transform: translateX(2px);
+  }
+
+  .author-list-item span:first-child {
+    font-size: 0.98rem;
+    font-weight: 660;
+  }
 }
 
 .cover-grid {
@@ -1436,7 +1539,52 @@ canvas {
 }
 
 .browse-section-list .library-list {
-  max-width: 1000px;
+  max-width: 1180px;
+}
+
+@media (min-width: 861px) {
+  .browse-section-list {
+    width: min(1180px, 100%);
+  }
+
+  .browse-section-list .browse-heading {
+    width: 100%;
+    margin-bottom: 10px;
+  }
+
+  .browse-section-list .browse-heading .segmented {
+    align-self: end;
+    border-color: rgb(var(--shadow-rgb) / 0.075);
+    background: rgb(var(--card-rgb) / 0.74);
+    box-shadow:
+      0 1px 4px rgb(var(--shadow-rgb) / 0.055),
+      inset 0 1px 0 rgb(var(--card-rgb) / 0.5);
+  }
+
+  .browse-section-list .browse-heading .segmented-button {
+    min-height: 34px;
+    padding: 6px 12px;
+    color: var(--ink-muted);
+  }
+
+  .browse-section-list .browse-heading .segmented-button:hover,
+  .browse-section-list .browse-heading .segmented-button:focus-visible {
+    background: rgb(var(--primary-rgb) / 0.08);
+    color: var(--accent);
+  }
+
+  .browse-section-list .browse-heading .segmented-button.active {
+    color: var(--accent-ink);
+  }
+
+  .browse-section-list .library-list {
+    width: 100%;
+    border-color: rgb(var(--shadow-rgb) / 0.07);
+    background: rgb(var(--card-rgb) / 0.78);
+    box-shadow:
+      0 8px 22px rgb(var(--shadow-rgb) / 0.055),
+      inset 0 1px 0 rgb(var(--card-rgb) / 0.5);
+  }
 }
 
 .browse-section-cover .cover-grid {
