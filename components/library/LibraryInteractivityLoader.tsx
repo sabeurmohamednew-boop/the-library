@@ -110,7 +110,7 @@ export function LibraryInteractivityLoader({ totalCount, initialBrowse }: Librar
             />
           </div>
           <button className="button primary" type="submit" disabled={loading} aria-busy={loading}>
-            {loading ? "Loading..." : "Search, filter, and load more"}
+            {loading ? "Loading..." : "Search library"}
           </button>
         </form>
       </div>
