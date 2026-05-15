@@ -82,34 +82,38 @@ export function LibraryInteractivityLoader({ totalCount, initialBrowse }: Librar
 
   return (
     <section className="browse-section browse-section-gallery" aria-labelledby="browse-heading">
-      <div className="section-heading browse-heading">
-        <div>
-          <h2 id="browse-heading">Browse library</h2>
-          <p className="muted small">Showing the first 12 books. Search, filters, alternate views, and more books load on demand.</p>
+      <div className="library-browse-panel">
+        <div className="section-heading browse-heading">
+          <div>
+            <h2 id="browse-heading">Browse library</h2>
+            <p className="muted small">Showing the first 12 books. Search, filters, alternate views, and more books load on demand.</p>
+          </div>
         </div>
-        <button className="button" type="button" onClick={() => void activateLibrary()} disabled={loading} aria-busy={loading}>
-          {loading ? "Loading..." : "Search, filter, and load more"}
-        </button>
-      </div>
 
-      <form
-        className="library-activation-search search-wrap"
-        role="search"
-        onSubmit={(event) => {
-          event.preventDefault();
-          void activateLibrary(pendingSearch);
-        }}
-      >
-        <Search aria-hidden="true" />
-        <input
-          className="field"
-          type="search"
-          value={pendingSearch}
-          onChange={(event) => setPendingSearch(event.target.value)}
-          placeholder="Search title, author, or description"
-          aria-label="Search books"
-        />
-      </form>
+        <form
+          className="library-activation-search"
+          role="search"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void activateLibrary(pendingSearch);
+          }}
+        >
+          <div className="library-activation-field search-wrap">
+            <Search aria-hidden="true" />
+            <input
+              className="field"
+              type="search"
+              value={pendingSearch}
+              onChange={(event) => setPendingSearch(event.target.value)}
+              placeholder="Search title, author, or description"
+              aria-label="Search books"
+            />
+          </div>
+          <button className="button primary" type="submit" disabled={loading} aria-busy={loading}>
+            {loading ? "Loading..." : "Search, filter, and load more"}
+          </button>
+        </form>
+      </div>
 
       {initialBrowse}
 
