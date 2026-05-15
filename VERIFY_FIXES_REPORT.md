@@ -1,5 +1,102 @@
 # Library Alpha UX/Bug Verification Report
 
+## 2026-05-15 Vercel Image Optimization Audit
+
+Target tested: local app at `http://127.0.0.1:3000/` using `npm run dev -- --hostname 127.0.0.1`  
+Browser method: Playwright Chromium, desktop viewport `1440x1000`, mobile viewport `390x844`  
+Scope: `/api/books/[slug]/cover`, `next/image` usage, `/_next/image` behavior, R2 cover objects, headers, cache behavior, concurrency, and source image validity.
+
+### Finding
+
+The most likely production failure mode is transient CDN image optimizer failure during cold or uncached optimization, not a crashing cover API route. The cover API returned valid image responses locally and the sampled R2 objects all decoded successfully, but optimizer misses currently depend on a multi-hop path:
+
+`/_next/image` -> `/api/books/[slug]/cover` -> database lookup -> R2 `GetObject` stream -> optimizer decode/resize/transcode.
+
+This is fragile under concurrent homepage loads when source covers are large, especially large PNGs. The biggest current outlier is `ikigai-the-japanese-secret-to-a-long-and-happy-life`: `8,939,726` bytes, `2492x3220`, PNG. Several other PNG covers are 1.5 MB to 3.6 MB. These are displayed around 108-214 CSS px on the homepage, so source transfer and decode cost are disproportionate on optimizer cache misses.
+
+### Differentiation
+
+| Signal | Interpretation |
+| --- | --- |
+| API route 200 with image content | Backend/API is healthy. |
+| `/_next/image` failure while API does not crash | CDN optimizer/origin fetch/decode/transcode failure is more likely than application crash. |
+| Browser `requestfailed` with cancellation during navigation/view changes | Usually harmless client abort/expected browser cancellation. |
+| 404/503 JSON from `/api/books/[slug]/cover` | Actual backend/data/config failure; these responses use `Cache-Control: no-store`. |
+
+### Route And Header Audit
+
+- `/api/books/[slug]/cover` runs in Node, does not generate covers at request time, and is not CPU-heavy itself.
+- R2 responses are streamed through `NextResponse`; the route does not buffer image bytes in application code.
+- Successful R2 cover responses include `Content-Type`, `Content-Length` when available, `ETag`, `Last-Modified`, `Cache-Control: public, max-age=31536000, immutable`, `CDN-Cache-Control`, `Vercel-CDN-Cache-Control`, and `X-Content-Type-Options: nosniff`.
+- Error responses are JSON with `Cache-Control: no-store`, which is correct for missing/temporary backend failures.
+- No redirects were found in the cover route.
+- Local fallback is development-only in practice when R2 is not configured; local fallback uses `no-store`.
+- No blur placeholders are configured, so blur placeholder generation is not contributing to the issue.
+
+### Image/Object Audit
+
+Checked all 41 database cover records against R2 with `sharp` metadata decode:
+
+- Corrupted/malformed covers found: `0`
+- DB content-type vs R2 content-type mismatches found: `0`
+- Formats present: JPEG, PNG, WEBP
+- Largest source covers:
+  - `ikigai-the-japanese-secret-to-a-long-and-happy-life`: 8.9 MB PNG, `2492x3220`
+  - `the-enchiridion-or-handbook-with-a-selection-from-the-discourses-of-epictetus`: 3.6 MB PNG, `1024x1536`
+  - `the-four-agreements-a-practical-guide-to-personal-freedom`: 3.2 MB PNG, `1024x1536`
+  - `why-you-should-never-masturbate-the-biggest-discovery-in-medical-science-uncover-2`: 2.7 MB PNG, `1024x1536`
+  - `rich-dad-poor-dad-what-the-rich-teach-their-kids-about-money-that-the-poor-and-m`: 2.6 MB PNG, `1024x1536`
+
+### Homepage Loading Audit
+
+Initial homepage renders 12 gallery covers. Playwright saw exactly 12 browser-visible `/_next/image` requests on desktop and mobile, all 200, with no browser request failures.
+
+- Desktop screenshot: `verification-artifacts/desktop-after-cover-audit.png`
+- Mobile screenshot: `verification-artifacts/mobile-after-cover-audit.png`
+- Cold/waterfall screenshot: `verification-artifacts/desktop-cover-audit-cold.png`
+
+Warm local optimizer results were small WebP responses, typically 3.7 KB to 16.8 KB. That confirms optimization is valuable for large PNG/JPEG covers and should not be blindly bypassed for all covers.
+
+### Timing Measurements
+
+Concurrent direct API requests for the first 12 homepage covers before the route query change:
+
+- Fastest: about 1.4s
+- Slowest: about 5.4s for `ikigai`
+- The slowest requests correlate with large source image transfer, not malformed content.
+
+Concurrent unique-source optimizer requests before the route query change:
+
+- Fastest: about 0.35s
+- Slowest: about 4.6s for `ikigai`
+
+After the route query change:
+
+- The route logs `coverBySlug` and no longer runs the full book serialization/publication-year path.
+- End-to-end direct API and optimizer timings remained noisy and still dominated by R2 transfer/decode, with `ikigai` still around 5s on the direct API path.
+- Impact is reduced backend query pressure and less DB work per optimizer miss, not a large visible latency improvement for the biggest covers.
+
+### Changes Made
+
+- `app/api/books/[slug]/cover/route.ts` now uses a cover-specific lookup instead of `getBookBySlug`.
+- `lib/books.ts` adds `getBookCoverBySlug`, selecting only identity and cover fields.
+- `next.config.ts` now accepts either `R2_PUBLIC_BASE_URL` or `NEXT_PUBLIC_R2_PUBLIC_BASE_URL` for the public R2 base URL. When configured, this lets `next/image` fetch a public R2 origin directly instead of routing optimizer misses through the application cover API.
+
+### Recommendations
+
+- Configure a public R2/custom-domain base URL in production and let Next optimize from that remote origin. This bypasses the serverless cover API for optimizer misses while preserving optimized image quality.
+- Keep `next/image` optimization for large PNG/JPEG covers; do not globally set `unoptimized`.
+- Consider replacing oversized PNG covers with web-optimized JPEG/WebP derivatives at upload/admin time. This is the highest-impact reliability and perceived performance fix for cold optimizer misses.
+- Consider `unoptimized` only for already-small WebP covers if production observability still shows optimizer strain; current WEBP covers are small enough, but this should be content-aware rather than global.
+- Keep browser cancellations separate from failures. A cancelled image during navigation/view changes should not be counted as backend instability.
+
+### Verification
+
+- `npm run typecheck`: passed
+- `npm run lint`: passed
+- Playwright desktop/mobile homepage screenshots: passed
+- R2 object metadata/decode audit for 41 covers: passed
+
 Date: 2026-05-14  
 Target tested: local app at `http://127.0.0.1:3000/` using `npm run dev -- --hostname 127.0.0.1`  
 Browser method: Playwright Chromium, desktop viewport `1440x1000`, mobile viewport `390x844`

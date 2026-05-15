@@ -1,6 +1,6 @@
 import type { NextConfig } from "next";
 
-const r2PublicBaseUrl = process.env.R2_PUBLIC_BASE_URL?.trim() || "";
+const r2PublicBaseUrl = process.env.R2_PUBLIC_BASE_URL?.trim() || process.env.NEXT_PUBLIC_R2_PUBLIC_BASE_URL?.trim() || "";
 
 function r2CoverRemotePatterns(): NonNullable<NextConfig["images"]>["remotePatterns"] {
   if (!r2PublicBaseUrl) return [];

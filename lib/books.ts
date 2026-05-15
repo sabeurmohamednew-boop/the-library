@@ -243,6 +243,27 @@ export function safeGetBookBySlug(slug: string) {
   return safeRuntime("books.bySlug", () => getBookBySlug(slug), { slug });
 }
 
+export async function getBookCoverBySlug(slug: string) {
+  noStore();
+  const book = await prisma.book.findUnique({
+    where: { slug },
+    select: {
+      id: true,
+      slug: true,
+      title: true,
+      author: true,
+      coverBlobPath: true,
+      coverContentType: true,
+    },
+  });
+  logBookRead("coverBySlug", {
+    requestedSlug: slug,
+    book: book ? bookIdentity(book) : null,
+  });
+
+  return book;
+}
+
 export async function getReaderBookBySlug(slug: string) {
   noStore();
   const book = await prisma.book.findUnique({

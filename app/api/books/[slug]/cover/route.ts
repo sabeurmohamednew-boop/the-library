@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getBookBySlug } from "@/lib/books";
+import { getBookCoverBySlug } from "@/lib/books";
 import { findLocalCoverFile, localNodeFileReadableStream } from "@/lib/localFiles";
 import { getR2Object, r2ConfigError } from "@/lib/r2";
 import { logRuntimeFailure, runtimeFailure } from "@/lib/runtime";
@@ -37,7 +37,7 @@ export async function GET(_request: Request, { params }: RouteContext) {
   let book;
 
   try {
-    book = await getBookBySlug(decodedSlug);
+    book = await getBookCoverBySlug(decodedSlug);
   } catch (error) {
     const failure = runtimeFailure("book-cover.lookup", error);
     logRuntimeFailure(failure, { slug: decodedSlug });
