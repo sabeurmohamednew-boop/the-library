@@ -1,0 +1,83 @@
+{
+  "wide": {
+    "panel": {
+      "left": 50,
+      "right": 1390,
+      "width": 1340
+    },
+    "grid": {
+      "left": 50,
+      "right": 1390,
+      "width": 1340
+    },
+    "header": {
+      "left": 50,
+      "right": 1390,
+      "width": 1340
+    },
+    "shell": {
+      "left": 50,
+      "right": 1390,
+      "width": 1340
+    },
+    "search": {
+      "left": 687,
+      "right": 1363,
+      "width": 676
+    }
+  },
+  "laptop": {
+    "panel": {
+      "left": 16,
+      "right": 1264,
+      "width": 1248
+    },
+    "grid": {
+      "left": 16,
+      "right": 1264,
+      "width": 1248
+    },
+    "header": {
+      "left": 16,
+      "right": 1264,
+      "width": 1248
+    },
+    "shell": {
+      "left": 16,
+      "right": 1264,
+      "width": 1248
+    },
+    "search": {
+      "left": 609,
+      "right": 1237,
+      "width": 628
+    }
+  },
+  "mobile": {
+    "panel": {
+      "left": 12,
+      "right": 378,
+      "width": 366
+    },
+    "grid": {
+      "left": 12,
+      "right": 378,
+      "width": 366
+    },
+    "header": {
+      "left": 12,
+      "right": 378,
+      "width": 366
+    },
+    "shell": {
+      "left": 12,
+      "right": 378,
+      "width": 366
+    },
+    "search": {
+      "left": 25,
+      "right": 365,
+      "width": 340
+    }
+  }
+}

@@ -248,7 +248,8 @@ canvas {
 .library-header {
   display: grid;
   gap: 16px;
-  max-width: 1240px;
+  width: 100%;
+  max-width: none;
   margin: 0 auto 14px;
   min-height: 88px;
 }
@@ -604,7 +605,8 @@ canvas {
   grid-template-columns: minmax(300px, 0.84fr) minmax(420px, 1fr);
   align-items: center;
   gap: clamp(20px, 3vw, 42px);
-  max-width: 1240px;
+  width: 100%;
+  max-width: none;
   margin: 0 auto 18px;
   padding: clamp(18px, 2.1vw, 26px);
   border: 1px solid rgb(var(--border-rgb) / 0.78);

@@ -1,0 +1,68 @@
+{
+  "wide": {
+    "panel": {
+      "left": 100,
+      "right": 1340,
+      "width": 1240
+    },
+    "grid": {
+      "left": 50,
+      "right": 1390,
+      "width": 1340
+    },
+    "header": {
+      "left": 100,
+      "right": 1340,
+      "width": 1240
+    },
+    "shell": {
+      "left": 50,
+      "right": 1390,
+      "width": 1340
+    }
+  },
+  "laptop": {
+    "panel": {
+      "left": 20,
+      "right": 1260,
+      "width": 1240
+    },
+    "grid": {
+      "left": 16,
+      "right": 1264,
+      "width": 1248
+    },
+    "header": {
+      "left": 20,
+      "right": 1260,
+      "width": 1240
+    },
+    "shell": {
+      "left": 16,
+      "right": 1264,
+      "width": 1248
+    }
+  },
+  "mobile": {
+    "panel": {
+      "left": 12,
+      "right": 378,
+      "width": 366
+    },
+    "grid": {
+      "left": 12,
+      "right": 378,
+      "width": 366
+    },
+    "header": {
+      "left": 12,
+      "right": 378,
+      "width": 366
+    },
+    "shell": {
+      "left": 12,
+      "right": 378,
+      "width": 366
+    }
+  }
+}
