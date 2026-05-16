@@ -1655,12 +1655,12 @@ canvas {
 }
 
 .browse-section-list .library-list {
-  max-width: 1180px;
+  max-width: 100%;
 }
 
 @media (min-width: 861px) {
   .browse-section-list {
-    width: min(1180px, 100%);
+    width: 100%;
   }
 
   .browse-section-list .browse-heading {
