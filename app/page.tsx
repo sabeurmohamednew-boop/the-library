@@ -56,6 +56,18 @@ export default async function HomePage() {
         initialCount={result.data.books.length}
         initialBrowse={<LibraryInitialBrowse books={result.data.books} />}
       />
+
+      <footer className="library-support" aria-label="Support The Library">
+        <p>The Library is free and ad-free. Donations help cover hosting, storage, and bandwidth.</p>
+        <a
+          className="button tertiary library-support-link"
+          href="https://ko-fi.com/thelibraryalpha"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Support the library
+        </a>
+      </footer>
     </main>
   );
 }

@@ -1,5 +1,48 @@
 # Library Alpha UX/Bug Verification Report
 
+## 2026-05-16 Ko-fi Support Link
+
+Target tested: local production app at `http://127.0.0.1:3000/` using `npm run build` and `npm run start -- --hostname 127.0.0.1 --port 3000`  
+Browser method: Playwright Chromium, desktop viewport `1440x1000` and mobile viewport `390x844`.
+
+### Files Changed
+
+- `app/page.tsx`: added a quiet homepage support footer after `LibraryInteractivityLoader` and before the closing `main`.
+- `app/globals.css`: added understated `.library-support` and `.library-support-link` styles, including a stacked mobile layout under `860px`.
+- `VERIFY_FIXES_REPORT.md`: documented placement, verification, and performance/accessibility notes.
+
+### Exact Placement
+
+The support integration appears at the bottom of the homepage content, below the initial library browse/results area. It uses the line: “The Library is free and ad-free. Donations help cover hosting, storage, and bandwidth.” followed by a subtle `Support the library` text link.
+
+The link points to `https://ko-fi.com/thelibraryalpha`, uses `target="_blank"`, and includes `rel="noopener noreferrer"`.
+
+### Performance And Accessibility Notes
+
+The integration is a plain external anchor only. It does not import Ko-fi scripts, load Ko-fi homepage assets, embed an iframe, add a modal, add a popup/widget, or introduce a sticky banner. It does not block reading, downloading, search, filters, or homepage browsing.
+
+The link is keyboard-focusable as a normal anchor. Because it has visible text, it does not need an icon-only `aria-label`. Playwright confirmed keyboard focus reaches the link on desktop and mobile.
+
+Playwright DOM and resource checks found no Ko-fi scripts, iframes, performance resource entries, or homepage network requests before clicking the link. Clicking the link opened a new tab at `https://ko-fi.com/thelibraryalpha`.
+
+Local Playwright still reports the existing local-only Vercel observability script 404/abort entries under `next start`:
+
+- `/_vercel/insights/script.js`
+- `/_vercel/speed-insights/script.js`
+
+No Ko-fi-related console errors or failed homepage requests were observed.
+
+### Verification
+
+- `npm run typecheck`: passed
+- `npm run lint`: passed
+- `npm run build`: passed
+- Playwright desktop homepage smoke: passed, screenshot saved to `verification-artifacts/kofi-support-link/desktop.png`
+- Playwright mobile homepage smoke: passed, screenshot saved to `verification-artifacts/kofi-support-link/mobile.png`
+- Link target/rel check: passed
+- New-tab Ko-fi navigation check: passed
+- No Ko-fi third-party script/iframe/homepage asset load: passed
+
 ## 2026-05-16 Final Mobile PageSpeed Cleanup Pass
 
 Target tested: local production app at `http://127.0.0.1:3000/` using `npm run build` and `npm run start -- --hostname 127.0.0.1 --port 3000`  
