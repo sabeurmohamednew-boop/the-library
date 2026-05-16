@@ -1758,7 +1758,7 @@ html[data-theme="dark"] .button.tertiary.active {
 .details-grid {
   display: grid;
   grid-template-columns: minmax(226px, 306px) minmax(0, 820px);
-  gap: clamp(26px, 2.6vw, 36px);
+  gap: clamp(28px, 2.7vw, 38px);
   align-items: start;
   max-width: 1162px;
 }
@@ -1774,7 +1774,7 @@ html[data-theme="dark"] .button.tertiary.active {
 .details-content {
   display: grid;
   align-content: start;
-  gap: 20px;
+  gap: 19px;
   max-width: 820px;
 }
 
@@ -1822,6 +1822,11 @@ html[data-theme="dark"] .button.tertiary.active {
   transform: translateX(-2px);
 }
 
+.book-detail-page .button:focus-visible,
+.related-books-section .book-card a:focus-visible {
+  outline-offset: 3px;
+}
+
 .details-content .action-row {
   gap: 10px;
   padding-block: 2px 4px;
@@ -1857,6 +1862,15 @@ html[data-theme="dark"] .button.tertiary.active {
   padding: 13px 16px 14px;
 }
 
+.book-detail-page .metadata-grid {
+  border-color: rgb(var(--text-rgb) / 0.08);
+  background: rgb(var(--card-rgb) / 0.54);
+}
+
+.book-detail-page .metadata-item {
+  border-color: rgb(var(--text-rgb) / 0.07);
+}
+
 .metadata-item:nth-child(-n + 3) {
   border-top: 0;
 }
@@ -1889,6 +1903,21 @@ html[data-theme="dark"] .button.tertiary.active {
 
 .related-books-section .section-heading {
   margin-top: 0;
+}
+
+.book-detail-page .related-books-section .gallery-grid {
+  gap: 14px;
+}
+
+.book-detail-page .related-books-section .book-card {
+  border-color: rgb(var(--text-rgb) / 0.07);
+  box-shadow: 0 8px 24px rgb(var(--shadow-rgb) / 0.07);
+}
+
+.book-detail-page .related-books-section .book-card:hover,
+.book-detail-page .related-books-section .book-card:focus-within {
+  border-color: rgb(var(--primary-rgb) / 0.16);
+  box-shadow: 0 12px 28px rgb(var(--shadow-rgb) / 0.11);
 }
 
 .book-data-panel h3 {
@@ -2346,7 +2375,7 @@ kbd {
   }
 
   .details-grid {
-    gap: 18px;
+    gap: 19px;
   }
 
   .details-cover {
@@ -2354,7 +2383,7 @@ kbd {
   }
 
   .details-content {
-    gap: 14px;
+    gap: 15px;
   }
 
   .details-content h1 {
@@ -2389,6 +2418,10 @@ kbd {
 
   .metadata-item:nth-child(-n + 3) {
     border-top: 1px solid var(--line);
+  }
+
+  .book-detail-page .metadata-item:nth-child(-n + 3) {
+    border-top-color: rgb(var(--text-rgb) / 0.07);
   }
 
   .metadata-item:first-child {
@@ -2969,6 +3002,14 @@ kbd {
     border-left: 0;
     border-top-color: rgb(20 24 22 / 0.07);
     padding: 10px 0;
+  }
+
+  .book-detail-page .metadata-grid {
+    border-color: rgb(20 24 22 / 0.06);
+  }
+
+  .book-detail-page .metadata-item {
+    border-top-color: rgb(20 24 22 / 0.055);
   }
 
   .metadata-item:first-child {
@@ -3662,9 +3703,18 @@ kbd {
   .toolbar,
 .author-page-heading,
 .metadata-grid {
-    border-color: var(--mobile-hairline);
     background: var(--control-bg);
     box-shadow: var(--mobile-control-shadow);
+  }
+
+  .toolbar,
+.author-page-heading,
+.metadata-grid {
+    border-color: var(--mobile-hairline);
+  }
+
+  .book-detail-page .metadata-grid {
+    border-color: rgb(var(--text-rgb) / 0.065);
   }
 
   .toolbar .field,
@@ -3736,6 +3786,10 @@ kbd {
     border-color: var(--control-border);
   }
 
+  .book-detail-page .metadata-item {
+    border-color: rgb(var(--text-rgb) / 0.06);
+  }
+
   .title-list-format,
 .author-page-heading > span {
     border-color: rgb(var(--primary-rgb) / 0.18);
@@ -3770,8 +3824,20 @@ html[data-theme="dark"] .toolbar,
 html[data-theme="dark"] .library-filterbar,
 html[data-theme="dark"] .author-page-heading,
 html[data-theme="dark"] .metadata-grid {
-    border-color: var(--control-border);
     background: var(--control-bg);
+  }
+
+  html[data-theme="dark"] .page-topline .button.subtle,
+html[data-theme="dark"] .theme-toggle,
+html[data-theme="dark"] .toolbar,
+html[data-theme="dark"] .library-filterbar,
+html[data-theme="dark"] .author-page-heading,
+html[data-theme="dark"] .metadata-grid {
+    border-color: var(--control-border);
+  }
+
+  html[data-theme="dark"] .book-detail-page .metadata-grid {
+    border-color: rgb(var(--text-rgb) / 0.105);
   }
 
   html[data-theme="dark"] .site-title,
@@ -3913,8 +3979,17 @@ html[data-theme="dark"] .inline-author-link {
     background: rgb(var(--card-rgb) / 0.92);
   }
 
+  html[data-theme="dark"] .book-detail-page .metadata-grid {
+    border-color: rgb(var(--text-rgb) / 0.105);
+    background: rgb(var(--card-rgb) / 0.88);
+  }
+
   html[data-theme="dark"] .metadata-item {
     border-top-color: var(--control-border);
+  }
+
+  html[data-theme="dark"] .book-detail-page .metadata-item {
+    border-color: rgb(var(--text-rgb) / 0.09);
   }
 
   html[data-theme="dark"] .title-list-format,
