@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { ExternalLink } from "lucide-react";
 import { LibraryInitialBrowse } from "@/components/library/LibraryInitialBrowse";
 import { LibraryInteractivityLoader } from "@/components/library/LibraryInteractivityLoader";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -66,6 +67,7 @@ export default async function HomePage() {
           rel="noopener noreferrer"
         >
           Support the library
+          <ExternalLink className="library-support-link-icon" size={14} strokeWidth={1.8} aria-hidden="true" />
         </a>
       </footer>
     </main>

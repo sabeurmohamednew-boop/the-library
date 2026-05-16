@@ -650,12 +650,68 @@ html[data-theme="dark"] .button.tertiary.active {
   line-height: 1.45;
 }
 
-.library-support-link {
+.button.tertiary.library-support-link {
   min-height: 34px;
   flex: 0 0 auto;
-  padding: 7px 11px;
+  border-color: rgb(var(--primary-rgb) / 0.24);
+  border-radius: 999px;
+  background: rgb(var(--primary-rgb) / 0.055);
+  box-shadow: inset 0 1px 0 rgb(var(--card-rgb) / 0.52);
+  color: var(--ink);
+  padding: 7px 12px;
   font-size: 0.84rem;
-  font-weight: 580;
+  font-weight: 600;
+  line-height: 1;
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    box-shadow 160ms ease,
+    color 160ms ease,
+    transform 160ms ease;
+}
+
+.button.tertiary.library-support-link:hover,
+.button.tertiary.library-support-link:focus-visible {
+  border-color: rgb(var(--primary-rgb) / 0.42);
+  background: rgb(var(--primary-rgb) / 0.095);
+  box-shadow:
+    0 7px 16px rgb(var(--shadow-rgb) / 0.075),
+    inset 0 1px 0 rgb(var(--card-rgb) / 0.58);
+  color: var(--accent);
+}
+
+.button.tertiary.library-support-link:focus-visible {
+  outline-color: rgb(var(--primary-rgb) / 0.34);
+}
+
+.library-support-link-icon {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  opacity: 0.68;
+  transition: opacity 160ms ease;
+}
+
+.library-support-link:hover .library-support-link-icon,
+.library-support-link:focus-visible .library-support-link-icon {
+  opacity: 0.9;
+}
+
+html[data-theme="dark"] .button.tertiary.library-support-link {
+  border-color: rgb(var(--primary-rgb) / 0.22);
+  background: rgb(var(--text-rgb) / 0.035);
+  box-shadow: inset 0 1px 0 rgb(var(--text-rgb) / 0.05);
+  color: var(--text);
+}
+
+html[data-theme="dark"] .button.tertiary.library-support-link:hover,
+html[data-theme="dark"] .button.tertiary.library-support-link:focus-visible {
+  border-color: rgb(var(--primary-rgb) / 0.36);
+  background: rgb(var(--primary-rgb) / 0.11);
+  box-shadow:
+    0 8px 18px rgb(var(--shadow-rgb) / 0.28),
+    inset 0 1px 0 rgb(var(--text-rgb) / 0.06);
+  color: var(--accent);
 }
 
 .toolbar-search {
