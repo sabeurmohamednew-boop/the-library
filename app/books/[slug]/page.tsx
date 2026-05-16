@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ArrowLeft } from "lucide-react";
 import { BookActionLinks } from "@/components/library/BookActionLinks";
 import { BookCard } from "@/components/library/BookCard";
 import { AuthorLinks } from "@/components/library/AuthorLinks";
@@ -96,7 +97,8 @@ export default async function BookPage({ params }: BookPageProps) {
   return (
     <main className="site-shell book-detail-page" id="main">
       <div className="page-topline">
-        <Link className="button subtle" href="/">
+        <Link className="button subtle detail-back-link" href="/">
+          <ArrowLeft size={17} aria-hidden="true" />
           Back to The Library
         </Link>
       </div>
@@ -125,9 +127,9 @@ export default async function BookPage({ params }: BookPageProps) {
           ) : null}
 
           <div className="action-row">
-            <BookActionLinks book={{ slug: book.slug, title: bookTitle, format: book.format }} downloadClassName="button" />
-            <BookBookmarkButton slug={book.slug} />
-            <ShareButton />
+            <BookActionLinks book={{ slug: book.slug, title: bookTitle, format: book.format }} downloadClassName="button secondary" />
+            <BookBookmarkButton slug={book.slug} className="button tertiary" activeClassName="button tertiary active" />
+            <ShareButton className="button tertiary" />
           </div>
 
           <dl className="metadata-grid">
@@ -160,7 +162,7 @@ export default async function BookPage({ params }: BookPageProps) {
       </section>
 
       {relatedBooks.length > 0 ? (
-        <section aria-labelledby="related-heading">
+        <section className="related-books-section" aria-labelledby="related-heading">
           <div className="section-heading">
             <h2 id="related-heading">Related books</h2>
           </div>
@@ -171,7 +173,7 @@ export default async function BookPage({ params }: BookPageProps) {
           </div>
         </section>
       ) : relatedResult.ok ? (
-        <section className="related-empty-section" aria-labelledby="related-heading">
+        <section className="related-books-section related-empty-section" aria-labelledby="related-heading">
           <div className="section-heading">
             <h2 id="related-heading">Related books</h2>
           </div>

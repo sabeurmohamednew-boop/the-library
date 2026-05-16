@@ -393,6 +393,42 @@ canvas {
   color: var(--accent-ink);
 }
 
+.button.secondary {
+  border-color: rgb(var(--primary-rgb) / 0.28);
+  background: rgb(var(--primary-rgb) / 0.055);
+  color: var(--ink);
+}
+
+.button.tertiary {
+  border-color: var(--control-border);
+  background: transparent;
+  color: var(--ink-muted);
+}
+
+.button.tertiary.active {
+  border-color: rgb(var(--primary-rgb) / 0.34);
+  background: rgb(var(--primary-rgb) / 0.1);
+  color: var(--accent);
+}
+
+html[data-theme="dark"] .button.secondary {
+  border-color: rgb(var(--primary-rgb) / 0.3);
+  background: rgb(var(--primary-rgb) / 0.1);
+  color: var(--text);
+}
+
+html[data-theme="dark"] .button.tertiary {
+  border-color: var(--control-border);
+  background: rgb(var(--text-rgb) / 0.025);
+  color: var(--muted);
+}
+
+html[data-theme="dark"] .button.tertiary.active {
+  border-color: rgb(var(--primary-rgb) / 0.34);
+  background: rgb(var(--primary-rgb) / 0.13);
+  color: var(--accent);
+}
+
 .button-label-stable {
   display: inline-block;
   min-width: 4.2em;
@@ -1721,9 +1757,10 @@ canvas {
 
 .details-grid {
   display: grid;
-  grid-template-columns: minmax(220px, 320px) minmax(0, 1fr);
-  gap: 28px;
+  grid-template-columns: minmax(240px, 326px) minmax(0, 820px);
+  gap: clamp(26px, 3vw, 40px);
   align-items: start;
+  max-width: 1210px;
 }
 
 .details-cover {
@@ -1731,11 +1768,14 @@ canvas {
   border-radius: var(--radius);
   overflow: hidden;
   background: var(--surface);
+  box-shadow: 0 16px 34px rgb(var(--shadow-rgb) / 0.09);
 }
 
 .details-content {
   display: grid;
-  gap: 18px;
+  align-content: start;
+  gap: 20px;
+  max-width: 820px;
 }
 
 .details-content .button-label-stable {
@@ -1743,26 +1783,78 @@ canvas {
 }
 
 .details-content h1 {
+  max-width: 24ch;
   margin: 0;
   font-size: 2rem;
   line-height: 1.15;
 }
 
 .details-description {
-  max-width: 72ch;
+  max-width: 66ch;
+  margin: 0;
   color: var(--ink);
   font-size: 1.05rem;
+  line-height: 1.65;
+}
+
+.detail-authors {
+  margin-block: 6px 0;
+}
+
+.details-content > div > .small:first-child {
+  margin: 0 0 8px;
+}
+
+.detail-back-link {
+  color: var(--ink-muted);
+  padding-inline: 8px 10px;
+}
+
+.detail-back-link:hover {
+  background: rgb(var(--primary-rgb) / 0.065);
+}
+
+.details-content .action-row {
+  gap: 10px;
+  padding-block: 2px 4px;
+}
+
+.details-content .button.primary {
+  min-width: 76px;
+  box-shadow: 0 8px 18px rgb(var(--primary-rgb) / 0.18);
+}
+
+.details-content .button.secondary {
+  min-width: 106px;
+}
+
+.details-content .button.tertiary {
+  min-width: 112px;
 }
 
 .metadata-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
+  max-width: 820px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgb(var(--card-rgb) / 0.6);
 }
 
 .metadata-item {
   border-top: 1px solid var(--line);
-  padding-top: 10px;
+  border-left: 1px solid var(--line);
+  padding: 13px 16px 14px;
+}
+
+.metadata-item:nth-child(-n + 3) {
+  border-top: 0;
+}
+
+.metadata-item:nth-child(3n + 1) {
+  border-left: 0;
 }
 
 .metadata-item dt {
@@ -1773,6 +1865,16 @@ canvas {
 .metadata-item dd {
   margin: 2px 0 0;
   font-weight: 580;
+}
+
+.related-books-section {
+  margin-top: clamp(34px, 5vw, 58px);
+  border-top: 1px solid var(--line);
+  padding-top: clamp(18px, 2.4vw, 28px);
+}
+
+.related-books-section .section-heading {
+  margin-top: 0;
 }
 
 .book-data-panel h3 {
@@ -2267,7 +2369,16 @@ kbd {
   }
 
   .metadata-item {
+    border-left: 0;
     padding-top: 8px;
+  }
+
+  .metadata-item:nth-child(-n + 3) {
+    border-top: 1px solid var(--line);
+  }
+
+  .metadata-item:first-child {
+    border-top: 0;
   }
 
   
@@ -2841,6 +2952,7 @@ kbd {
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 12px;
     align-items: baseline;
+    border-left: 0;
     border-top-color: rgb(20 24 22 / 0.07);
     padding: 10px 0;
   }
@@ -3716,6 +3828,24 @@ html[data-theme="dark"] .segmented-button.active {
     border-color: var(--accent);
     background: var(--accent);
     color: var(--accent-ink);
+  }
+
+  html[data-theme="dark"] .button.secondary {
+    border-color: rgb(var(--primary-rgb) / 0.3);
+    background: rgb(var(--primary-rgb) / 0.1);
+    color: var(--text);
+  }
+
+  html[data-theme="dark"] .button.tertiary {
+    border-color: var(--control-border);
+    background: rgb(var(--text-rgb) / 0.025);
+    color: var(--muted);
+  }
+
+  html[data-theme="dark"] .button.tertiary.active {
+    border-color: rgb(var(--primary-rgb) / 0.34);
+    background: rgb(var(--primary-rgb) / 0.13);
+    color: var(--accent);
   }
 
   html[data-theme="dark"] .segmented {
