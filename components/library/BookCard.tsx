@@ -14,6 +14,9 @@ type BookCardProps = {
   imageFetchPriority?: "high" | "low" | "auto";
 };
 
+const BOOK_CARD_COVER_SIZES =
+  "(max-width: 560px) calc((100vw - 48px) / 2), (max-width: 860px) calc((100vw - 72px) / 3), (max-width: 1200px) 22vw, 214px";
+
 export function BookCard({ book, imagePriority = false, imageFetchPriority }: BookCardProps) {
   const bookTitle = displayBookTitle(book.title);
   const title = truncateText(bookTitle, TRUNCATION_LIMITS.title);
@@ -27,7 +30,7 @@ export function BookCard({ book, imagePriority = false, imageFetchPriority }: Bo
           book={{ slug: book.slug, title: bookTitle, format: book.format, coverBlobPath: book.coverBlobPath, updatedAt: book.updatedAt }}
           priority={imagePriority}
           fetchPriority={imageFetchPriority}
-          sizes="(max-width: 560px) 108px, (max-width: 860px) 108px, (max-width: 1200px) 22vw, 214px"
+          sizes={BOOK_CARD_COVER_SIZES}
         />
       </Link>
 

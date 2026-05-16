@@ -1,5 +1,100 @@
 # Library Alpha UX/Bug Verification Report
 
+## 2026-05-16 Homepage Core Web Vitals Audit
+
+Target tested: local production app at `http://127.0.0.1:3000/` using `npm run build` and `npm run start -- --hostname 127.0.0.1 --port 3000`  
+Browser method: Playwright Chromium, desktop viewport `1440x1000`, mobile viewport `390x844`, throttled with 260 ms latency, 1.6 Mbps down, 750 Kbps up, and 3x CPU slowdown.  
+Scope: homepage LCP, CLS, card/cover layout stability, `next/image` `sizes`, initial cover count, optimizer cache behavior, public R2 URL path, fonts, hydration, console errors, and failed network requests.
+
+### Measured Bottlenecks
+
+Before changes, the desktop cold-cache homepage requested 12 optimized cover images on initial load. All 12 were `x-nextjs-cache: MISS`, and the static homepage slice included the known 8.9 MB source PNG for `ikigai-the-japanese-secret-to-a-long-and-happy-life`.
+
+The LCP element was the first book cover image, `Cover of 12 Rules for Life: An Antidote to Chaos`. Under throttled desktop conditions, measured LCP was about `2044 ms` before changes and about `1928 ms` after changes. The local LCP number is not a production-region substitute, but it confirms the LCP element and that reducing initial image pressure does not move LCP to a worse element.
+
+CLS was `0` before and after in local initial-load testing. No `layout-shift` entries were captured. Cover containers reserve space with `aspect-ratio: 2 / 3`, and `next/image fill` renders inside already-sized wrappers.
+
+Initial HTML weight dropped after the static slice change: decoded homepage HTML went from about `130,936` bytes to `86,421` bytes in the throttled Playwright run. Initial optimized image responses dropped from `12` to `6` on desktop cold cache.
+
+### Root Causes
+
+The clearest root cause for poor India/Japan cold-load behavior is not initial layout instability in the local app. It is cold image optimization pressure: too many first-pass cover optimizations, several backed by large PNG/JPEG sources and a multi-hop optimizer path when public R2 is not configured.
+
+The previous card `sizes` prop understated mobile/tablet gallery cover width as `108px`. On the current mobile gallery, covers render around `171px` wide at `390px` viewport, so high-density screens could receive lower-resolution images than intended. This was not a CLS source, but it was an image selection bug.
+
+Local `.env` does not define `R2_PUBLIC_BASE_URL` or `NEXT_PUBLIC_R2_PUBLIC_BASE_URL`, so local optimized image URLs still fetch through `/api/books/[slug]/cover`. The direct public R2 path remains supported by `BookCover` and `next.config.ts` when either public base URL variable is configured.
+
+No font-induced CLS was reproduced. The app uses `next/font` Inter with `display: "swap"` and a stable CSS variable. No hydration swap caused initial-load layout shift in Playwright.
+
+### Files Changed
+
+- `app/page.tsx`: uses a shared homepage initial-count constant and passes the actual initial count to the interactivity loader.
+- `lib/libraryConfig.ts`: adds `LIBRARY_HOME_INITIAL_COUNT = 6`.
+- `components/library/LibraryInteractivityLoader.tsx`: removes hardcoded `12` copy/logic and displays the actual static slice count.
+- `components/library/BookCard.tsx`: updates `next/image` `sizes` to match the real responsive card widths.
+- `next.config.ts`: sets `images.minimumCacheTTL` to one year because cover URLs are versioned with the cover blob path.
+
+### Before / After Observations
+
+Before:
+
+- Static homepage rendered 12 cards.
+- Desktop cold-cache run requested 12 `/_next/image` cover URLs.
+- The initial set included the oversized Ikigai PNG source.
+- Desktop LCP element: first cover image, about `2044 ms`.
+- CLS: `0`.
+- Mobile/tablet card `sizes` understated actual rendered cover width.
+
+After:
+
+- Static homepage renders 6 cards.
+- Desktop cold-cache run requested 6 `/_next/image` cover URLs.
+- The oversized Ikigai PNG is no longer in the initial static homepage slice.
+- Desktop LCP element remains the first cover image, about `1928 ms`.
+- CLS remains `0`.
+- Mobile `390px` viewport now selects `w=384` for roughly `171px` rendered covers, rather than undersizing from a `108px` hint.
+- Homepage smoke: initial 6 cards, `Load more books` expands to 24 cards, searching `atomic` returns `1 result` with `Atomic Habits`.
+
+### Console And Network Check
+
+Playwright reported two local-only failed requests:
+
+- `/_vercel/insights/script.js`
+- `/_vercel/speed-insights/script.js`
+
+Both are expected 404/abort behavior under local `next start`; they are not app route, cover, search, or download failures. No cover, homepage, static chunk, or library API failures were observed.
+
+### Asset Conversion Plan
+
+Do not bulk-replace covers blindly. The next safe asset pass should:
+
+1. Generate derivative covers for oversized source assets only, starting with PNG/JPEG covers over 1 MB.
+2. Target WebP or JPEG at approximately `640px` wide, quality `75-82`, preserving the current 2:3-ish crop behavior.
+3. Keep the original object until each DB record is updated and verified.
+4. Update `coverBlobPath` and `coverContentType` per book, then let the existing versioned image URLs invalidate optimizer cache.
+5. Re-test `/`, `/books/[slug]`, cover shelf view, reader routes, and downloads after the DB updates.
+
+Highest-priority known source:
+
+- `ikigai-the-japanese-secret-to-a-long-and-happy-life`: PNG, about `8.9 MB`, `2492x3220`.
+
+### Remaining Risks
+
+The reported production CLS around `0.44` was not reproduced locally. Since local initial-load CLS is stable at `0`, production RUM should be checked after deploy by URL, device class, and navigation type. If CLS remains high, inspect interaction-triggered sessions such as theme toggle, browser back/forward restoration, search activation, or late third-party script effects.
+
+Production should configure `R2_PUBLIC_BASE_URL` or `NEXT_PUBLIC_R2_PUBLIC_BASE_URL` with a public R2/custom-domain origin. Without it, cold optimizer misses still traverse the API proxy before reaching R2.
+
+Large source covers remain the biggest cold-cache reliability risk. The static homepage now avoids the worst offender initially, but full-library activation and detail pages can still trigger expensive first-time optimizations until oversized covers are replaced.
+
+### Verification
+
+- `npm run typecheck`: passed
+- `npm run lint`: passed
+- `npm run build`: passed
+- Playwright desktop/mobile homepage Web Vitals smoke: passed
+- Playwright homepage interaction smoke: passed
+- Console and failed network requests checked; only local Vercel analytics script 404/abort entries observed
+
 ## 2026-05-15 Vercel Image Optimization Audit
 
 Target tested: local app at `http://127.0.0.1:3000/` using `npm run dev -- --hostname 127.0.0.1`  

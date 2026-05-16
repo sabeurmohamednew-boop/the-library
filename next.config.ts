@@ -30,6 +30,7 @@ const nextConfig: NextConfig = {
     NEXT_PUBLIC_R2_PUBLIC_BASE_URL: r2PublicBaseUrl,
   },
   images: {
+    minimumCacheTTL: 31536000,
     localPatterns: [
       {
         pathname: "/api/books/**/cover",

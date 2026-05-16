@@ -4,6 +4,7 @@ import { LibraryInteractivityLoader } from "@/components/library/LibraryInteract
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { RuntimeNotice } from "@/components/RuntimeNotice";
 import { safeGetLibraryHomeBooks } from "@/lib/books";
+import { LIBRARY_HOME_INITIAL_COUNT } from "@/lib/libraryConfig";
 import { SITE_DESCRIPTION, SITE_TITLE } from "@/lib/seo";
 
 export const revalidate = 300;
@@ -30,7 +31,7 @@ export const metadata: Metadata = {
 };
 
 export default async function HomePage() {
-  const result = await safeGetLibraryHomeBooks(12);
+  const result = await safeGetLibraryHomeBooks(LIBRARY_HOME_INITIAL_COUNT);
 
   if (!result.ok) {
     return <RuntimeNotice failure={result.error} title="The Library could not load." adminHref="/admin" />;
@@ -50,7 +51,11 @@ export default async function HomePage() {
         </div>
       </header>
 
-      <LibraryInteractivityLoader totalCount={result.data.totalCount} initialBrowse={<LibraryInitialBrowse books={result.data.books} />} />
+      <LibraryInteractivityLoader
+        totalCount={result.data.totalCount}
+        initialCount={result.data.books.length}
+        initialBrowse={<LibraryInitialBrowse books={result.data.books} />}
+      />
     </main>
   );
 }

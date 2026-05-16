@@ -7,6 +7,7 @@ import type { IndexedLibraryBook } from "@/components/library/libraryViewTypes";
 
 type LibraryInteractivityLoaderProps = {
   totalCount: number;
+  initialCount: number;
   initialBrowse: ReactNode;
 };
 
@@ -22,7 +23,7 @@ type LibraryBooksResponse = {
   books: IndexedLibraryBook[];
 };
 
-export function LibraryInteractivityLoader({ totalCount, initialBrowse }: LibraryInteractivityLoaderProps) {
+export function LibraryInteractivityLoader({ totalCount, initialCount, initialBrowse }: LibraryInteractivityLoaderProps) {
   const [books, setBooks] = useState<IndexedLibraryBook[] | null>(null);
   const [InteractiveLibrary, setInteractiveLibrary] = useState<ComponentType<InteractiveLibraryProps> | null>(null);
   const [loading, setLoading] = useState(false);
@@ -86,7 +87,9 @@ export function LibraryInteractivityLoader({ totalCount, initialBrowse }: Librar
         <div className="section-heading browse-heading">
           <div>
             <h2 id="browse-heading">Browse library</h2>
-            <p className="muted small">Showing the first 12 books. Search, filters, alternate views, and more books load on demand.</p>
+            <p className="muted small">
+              Showing the first {initialCount.toLocaleString()} books. Search, filters, alternate views, and more books load on demand.
+            </p>
           </div>
         </div>
 
@@ -117,10 +120,10 @@ export function LibraryInteractivityLoader({ totalCount, initialBrowse }: Librar
 
       {initialBrowse}
 
-      {totalCount > 12 ? (
+      {totalCount > initialCount ? (
         <div className="section-heading">
           <span className="muted small">
-            Showing 12 of {totalCount.toLocaleString()}. Continue below for more books.
+            Showing {initialCount.toLocaleString()} of {totalCount.toLocaleString()}. Continue below for more books.
           </span>
           <button className="button" type="button" onClick={() => void activateLibrary()} disabled={loading} aria-busy={loading}>
             {loading ? "Loading..." : "Load more books"}

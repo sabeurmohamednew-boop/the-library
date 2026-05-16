@@ -37,6 +37,8 @@ export const LIBRARY_PAGE_SIZE = {
   cover: 48,
 } as const;
 
+export const LIBRARY_HOME_INITIAL_COUNT = 6;
+
 function fallbackCategoryLabel(category: string) {
   return category
     .replace(/[_-]+/g, " ")
