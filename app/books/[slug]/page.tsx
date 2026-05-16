@@ -105,7 +105,10 @@ export default async function BookPage({ params }: BookPageProps) {
 
       <section className="details-grid" aria-labelledby="book-title">
         <div className="details-cover cover-frame">
-          <BookCover book={{ slug: book.slug, title: bookTitle, format: book.format, coverBlobPath: book.coverBlobPath, updatedAt: book.updatedAt }} />
+          <BookCover
+            book={{ slug: book.slug, title: bookTitle, format: book.format, coverBlobPath: book.coverBlobPath, updatedAt: book.updatedAt }}
+            sizes="(max-width: 560px) 238px, (max-width: 860px) 320px, 306px"
+          />
         </div>
 
         <div className="details-content">

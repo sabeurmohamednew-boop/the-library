@@ -1757,10 +1757,10 @@ html[data-theme="dark"] .button.tertiary.active {
 
 .details-grid {
   display: grid;
-  grid-template-columns: minmax(240px, 326px) minmax(0, 820px);
-  gap: clamp(26px, 3vw, 40px);
+  grid-template-columns: minmax(226px, 306px) minmax(0, 820px);
+  gap: clamp(26px, 2.6vw, 36px);
   align-items: start;
-  max-width: 1210px;
+  max-width: 1162px;
 }
 
 .details-cover {
@@ -1808,10 +1808,18 @@ html[data-theme="dark"] .button.tertiary.active {
 .detail-back-link {
   color: var(--ink-muted);
   padding-inline: 8px 10px;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    color 160ms ease,
+    transform 160ms ease;
 }
 
-.detail-back-link:hover {
+.detail-back-link:hover,
+.detail-back-link:focus-visible {
   background: rgb(var(--primary-rgb) / 0.065);
+  color: var(--accent);
+  transform: translateX(-2px);
 }
 
 .details-content .action-row {
@@ -1871,6 +1879,12 @@ html[data-theme="dark"] .button.tertiary.active {
   margin-top: clamp(34px, 5vw, 58px);
   border-top: 1px solid var(--line);
   padding-top: clamp(18px, 2.4vw, 28px);
+}
+
+@media (min-width: 1180px) {
+  .book-detail-page {
+    width: min(1280px, calc(100% - 32px));
+  }
 }
 
 .related-books-section .section-heading {
