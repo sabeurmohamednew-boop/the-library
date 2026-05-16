@@ -1,5 +1,78 @@
 # Library Alpha UX/Bug Verification Report
 
+## 2026-05-16 Final Mobile PageSpeed Cleanup Pass
+
+Target tested: local production app at `http://127.0.0.1:3000/` using `npm run build` and `npm run start -- --hostname 127.0.0.1 --port 3000`  
+Browser method: Playwright Chromium, desktop viewport `1440x1000`, mobile viewport `390x844`, plus one Lighthouse mobile audit via `npx lighthouse` using the Playwright Chromium binary.  
+Scope: remaining PageSpeed findings for legacy JavaScript, render-blocking CSS, forced reflow, unused JavaScript, premature client imports, analytics, and reader/PDF/EPUB bundling on the homepage.
+
+### Findings And Actions
+
+Legacy JavaScript was real in Lighthouse, but not safely actionable in app code. The local audit reported about `13 KiB` from Next's root framework chunk `10z666t7-w_5v.js`, with signals such as `Array.prototype.at`, `Array.prototype.flat`, `Array.prototype.flatMap`, `Object.fromEntries`, `Object.hasOwn`, `trimStart`, and `trimEnd`. The app has no `browserslist` override, and the production build also emits a Next `polyfillFiles` nomodule chunk (`03~yq9q893hmn.js`, about `110.0 KiB` raw / `38.6 KiB` gzip). I did not add a modern-only browser target because that would trade away browser support without evidence that app-owned code is causing the finding.
+
+The render-blocking CSS request was real but expected. Lighthouse flagged the single homepage stylesheet `062zjkb6evi7h.css` (`59,962` decoded bytes, `11,933` transfer bytes locally). It contains the global first-paint styling for layout, theme variables, controls, gallery cards, and responsive homepage rules. Lighthouse reported no unused CSS savings, so I did not split or inline CSS for this pass.
+
+The forced reflow finding was not reproduced on the initial homepage load. The local Lighthouse `forced-reflow-insight` had no source rows. The only homepage/client layout-read/write pattern found was the library activation scroll restoration in `LibraryInteractivityLoader`: it captured `scrollY`, replaced the static browse view with the full client UI, then used a layout effect and read `scrollX` while restoring scroll. I changed that to capture both coordinates before activation and restore with `requestAnimationFrame` in a normal effect, avoiding synchronous post-write layout work.
+
+Unused JavaScript was partially actionable. Lighthouse still reports about `48 KiB` of unused JS from Next root framework chunks (`10z666t7-w_5v.js` and `0w15xrrgqbw7a.js`), which are not app-owned route chunks. The app-owned actionable part was Vercel Web Analytics and Speed Insights: both packages were imported directly from `app/layout.tsx`, putting their client modules in the initial homepage client reference set even though they only append deferred observability scripts. I moved them behind `components/Observability.tsx`, a tiny client wrapper that imports them during idle time. Analytics behavior is preserved, but the package code is no longer part of the initial route component bundle.
+
+Reader/PDF/EPUB code is not bundled into the homepage initial route. The homepage client-reference manifest includes `Observability`, `RouteFreshness`, `LibraryInteractivityLoader`, and `ThemeToggle`; it does not include `pdfjs-dist`, `epubjs`, `posthog-js`, `ReaderShell`, `PdfReader`, or `EpubReader`. Those still exist as separate reader/dynamic chunks for `/read/[slug]`.
+
+### Files Changed
+
+- `app/layout.tsx`: replaces direct Vercel analytics package imports with the new observability wrapper.
+- `components/Observability.tsx`: idle-loads `@vercel/analytics/react` and `@vercel/speed-insights/next`.
+- `components/library/LibraryInteractivityLoader.tsx`: changes activation scroll restoration from `useLayoutEffect` plus post-write `scrollX` read to pre-captured coordinates and a normal effect scheduled with `requestAnimationFrame`.
+
+### Before / After Observations
+
+Before this pass, the homepage route-specific initial client chunks from the manifest were about `90.4 KiB` raw / `25.9 KiB` gzip:
+
+- `0d3shmwh5_nmn.js`: `53.4 KiB` raw / `12.5 KiB` gzip
+- `0tq4a-5z0.54q.js`: `25.9 KiB` raw / `9.6 KiB` gzip
+- `0~x.xwlkrjrwi.js`: `11.1 KiB` raw / `3.8 KiB` gzip
+
+After this pass, the homepage route-specific initial client chunks are about `84.7 KiB` raw / `24.3 KiB` gzip:
+
+- `0d3shmwh5_nmn.js`: `53.4 KiB` raw / `12.5 KiB` gzip
+- `091utbtsv~63t.js`: `26.0 KiB` raw / `9.6 KiB` gzip
+- `05l2e4-o-q6hy.js`: `5.3 KiB` raw / `2.2 KiB` gzip
+
+The Vercel observability modules now load as small deferred chunks (`07e~rzqyl-ym4.js` and `09elnb9137jj0.js`, about `4 KiB` each on disk locally) rather than being statically imported by the root layout.
+
+Local Lighthouse mobile result after changes:
+
+- Performance: `0.98`
+- FCP: `0.8s`
+- LCP: `2.2s`
+- TBT: `70ms`
+- CLS: `0`
+- Forced reflow insight: no source rows
+- Unused JavaScript: still reports about `48 KiB`, now from Next root framework chunks
+- Render-blocking request: the one required global CSS request
+- Legacy JavaScript: still reports about `13 KiB` from a Next root framework chunk
+
+### Risks And Non-Changes
+
+I did not change browser targets. The legacy-JS evidence points at framework/root compatibility output, and modernizing targets would need a product decision about dropping older browser support.
+
+I did not split or inline the global stylesheet. It is the required first-paint CSS for the homepage, Lighthouse found no unused CSS savings, and inlining large CSS was explicitly out of scope.
+
+I did not rewrite the homepage client model or remove existing interactivity. Search, filters, view toggles, Load More, reader links, downloads, theme toggle, and observability remain in place.
+
+Local Playwright still reports 404/abort entries for `/_vercel/insights/script.js` and `/_vercel/speed-insights/script.js` under `next start`; this is expected outside Vercel and was already observed in earlier local verification.
+
+### Verification
+
+- `npm run typecheck`: passed
+- `npm run lint`: passed
+- `npm run build`: passed
+- Playwright desktop homepage smoke: passed
+- Playwright mobile homepage smoke: passed
+- Playwright interaction smoke: initial 6 cards, Load More to 24 cards, search `atomic`, gallery/list/cover toggles: passed
+- Local Lighthouse mobile audit: completed and saved to `verification-artifacts/pagespeed-cleanup/lighthouse-mobile.json`
+- Bundle/chunk comparison: completed from `.next/server/app/page_client-reference-manifest.js`
+
 ## 2026-05-16 Homepage Core Web Vitals Audit
 
 Target tested: local production app at `http://127.0.0.1:3000/` using `npm run build` and `npm run start -- --hostname 127.0.0.1 --port 3000`  

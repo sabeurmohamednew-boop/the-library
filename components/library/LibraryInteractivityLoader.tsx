@@ -1,7 +1,7 @@
 "use client";
 
 import type { ComponentType, ReactNode } from "react";
-import { useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Search } from "lucide-react";
 import type { IndexedLibraryBook } from "@/components/library/libraryViewTypes";
 
@@ -30,14 +30,18 @@ export function LibraryInteractivityLoader({ totalCount, initialCount, initialBr
   const [error, setError] = useState("");
   const [pendingSearch, setPendingSearch] = useState("");
   const [activatedSearch, setActivatedSearch] = useState("");
-  const pendingActivationScrollY = useRef<number | null>(null);
+  const pendingActivationScroll = useRef<{ x: number; y: number } | null>(null);
 
-  useLayoutEffect(() => {
-    if (!books || !InteractiveLibrary || pendingActivationScrollY.current === null) return;
+  useEffect(() => {
+    if (!books || !InteractiveLibrary || pendingActivationScroll.current === null) return;
 
-    const scrollY = pendingActivationScrollY.current;
-    pendingActivationScrollY.current = null;
-    window.scrollTo({ top: scrollY, left: window.scrollX, behavior: "instant" });
+    const scrollPosition = pendingActivationScroll.current;
+    pendingActivationScroll.current = null;
+    const frame = window.requestAnimationFrame(() => {
+      window.scrollTo(scrollPosition.x, scrollPosition.y);
+    });
+
+    return () => window.cancelAnimationFrame(frame);
   }, [books, InteractiveLibrary]);
 
   async function activateLibrary(search = pendingSearch) {
@@ -45,7 +49,7 @@ export function LibraryInteractivityLoader({ totalCount, initialCount, initialBr
     setActivatedSearch(nextSearch);
     if (books || loading) return;
 
-    pendingActivationScrollY.current = window.scrollY;
+    pendingActivationScroll.current = { x: window.scrollX, y: window.scrollY };
     setLoading(true);
     setError("");
 

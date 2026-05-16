@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
-import { Analytics } from "@vercel/analytics/react";
-import { SpeedInsights } from "@vercel/speed-insights/next";
+import { Observability } from "@/components/Observability";
 import { RouteFreshness } from "@/components/RouteFreshness";
 import { SITE_CATEGORY, SITE_NAME, SITE_URL } from "@/lib/seo";
 import "./globals.css";
@@ -85,8 +84,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         </a>
         <RouteFreshness />
         {children}
-        <Analytics />
-        <SpeedInsights />
+        <Observability />
       </body>
     </html>
   );
