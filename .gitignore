@@ -3,8 +3,8 @@ node_modules/
 dist/
 out/
 build/
-.env
-.env*.local
+.env*
+!.env.example
 *.tsbuildinfo
 
 # Legacy local runtime data from the old filesystem demo mode.
@@ -16,3 +16,4 @@ storage/covers/*
 # Legacy SQLite runtime databases from the old demo mode.
 prisma/*.db
 prisma/*.db-journal
+.vercel
